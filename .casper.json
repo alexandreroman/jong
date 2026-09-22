@@ -1,0 +1,10 @@
+{
+  "workspace": {
+    "scripts": {
+      "setup": "make worktree-init",
+      "run": "make app-up",
+      "test": "make test",
+      "check": "make check"
+    }
+  }
+}
