@@ -336,7 +336,7 @@ function drawMatchOver(ctx, { match, touchMode }) {
   const title = matchWinner(match) === 'human' ? 'You win' : 'Jev wins';
   const rounds = match.results
     .map((winner, i) => `Round ${i + 1}: ${winner === 'human' ? 'You' : 'Jev'}`)
-    .join('  ·  ');
+    .join('    ');
   drawText(ctx, title, CENTER_X, 120, { size: 48, bold: true });
   drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 170, { size: 22 });
   drawText(ctx, rounds, CENTER_X, 205, { size: 14, color: DIM });
