@@ -176,7 +176,6 @@ describe('render court', () => {
     ball: { x: 400, y: 200 },
     score: { human: 0, jev: 0 },
     round: 1,
-    results: ['human'],
   };
   const stats = { last: null, average: 0, samples: [] };
 
@@ -232,6 +231,20 @@ describe('render court', () => {
     const matchOver = renderCourt('match-over');
     for (const text of HUD_TEXTS) {
       assert.ok(!hudText(matchOver, text), `${text} on match-over`);
+    }
+  });
+
+  it('draws no per-round breakdown on the match-over screen', () => {
+    const isRoundDetail = (call) => call.name === 'fillText' && /Round \d+:/.test(call.args[0]);
+    assert.ok(!renderCourt('match-over').some(isRoundDetail));
+  });
+
+  it('keeps the match-over texts above the Menu button', () => {
+    for (const touchMode of [false, true]) {
+      const calls = renderCourt('match-over', null, touchMode);
+      const prompt = calls.find((call) => call.name === 'fillText' && call.args[0].endsWith('to play again'));
+      // Drawn with a 'middle' baseline at 16 px, so the text extends about 8 px below its y.
+      assert.ok(prompt.args[2] + 8 < QUIT_BUTTON.y, `prompt above the Menu button (touch: ${touchMode})`);
     }
   });
 

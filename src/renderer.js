@@ -235,7 +235,7 @@ function drawCourt(ctx, { screen, apiError, match, fx, stats }) {
   }
   drawField(ctx, match, fx, { showBall: active });
 
-  // The match-over screen already shows the final score and every round's result.
+  // The match-over screen already shows the final score.
   if (screen !== 'match-over') {
     drawHud(ctx, match);
   }
@@ -388,12 +388,9 @@ function drawPlayOverlay(ctx, view) {
 function drawMatchOver(ctx, { match, touchMode }) {
   dimScreen(ctx);
   const title = matchWinner(match) === 'human' ? 'You win' : 'Jev wins';
-  const rounds = match.results
-    .map((winner, i) => `Round ${i + 1}: ${winner === 'human' ? 'You' : 'Jev'}`)
-    .join('    ');
+  // Title, score and prompt are spaced 50 px apart, like the paused screen, leaving room above the Menu button.
   drawText(ctx, title, CENTER_X, 120, { size: 48, bold: true });
   drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 170, { size: 22 });
-  drawText(ctx, rounds, CENTER_X, 205, { size: 14, color: DIM });
-  drawText(ctx, touchMode ? 'Tap to play again' : 'Press Space to play again', CENTER_X, 240);
+  drawText(ctx, touchMode ? 'Tap to play again' : 'Press Space to play again', CENTER_X, 220);
   drawButton(ctx, QUIT_BUTTON, touchMode ? 'Menu' : 'Menu (Q)');
 }
