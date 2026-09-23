@@ -12,6 +12,8 @@ const FONT = 'monospace';
 const LEVEL_COLORS = { good: '#3c3', fair: '#f90', poor: '#e33' };
 const CENTER_X = COURT.width / 2;
 const HUD_BOTTOM = 60;
+const BORDER_WIDTH = 2;
+const BORDER_RADIUS = 12;
 
 export const KEY_FIELD = { x: 200, y: 170, width: 400, height: 44 };
 export const START_BUTTON = { x: 330, y: 240, width: 140, height: 40 };
@@ -26,8 +28,25 @@ export function hitTest(rect, point) {
 
 /** Draws one frame for the given view. */
 export function render(ctx, view) {
+  // Clear rather than fill so the corners outside the rounded border stay transparent and show the page.
+  ctx.clearRect(0, 0, COURT.width, COURT.height);
+  ctx.save();
+  // Clipping to the border's outer edge keeps full-canvas fills (background, dim overlays) inside the rounded court.
+  ctx.beginPath();
+  ctx.roundRect(0, 0, COURT.width, COURT.height, BORDER_RADIUS + BORDER_WIDTH / 2);
+  ctx.clip();
+  try {
+    drawFrame(ctx, view);
+  } finally {
+    ctx.restore();
+  }
+}
+
+function drawFrame(ctx, view) {
   ctx.fillStyle = BACKGROUND;
   ctx.fillRect(0, 0, COURT.width, COURT.height);
+  // Drawn before any content so dim overlays darken it the same way they darken the center line.
+  drawCourtBorder(ctx);
 
   switch (view.screen) {
     case 'key-entry':
@@ -51,7 +70,8 @@ export function render(ctx, view) {
 
   if (view.portrait) {
     ctx.fillStyle = OVERLAY;
-    ctx.fillRect(0, 62, COURT.width, 36);
+    // Inset so the band stays inside the border instead of hiding its sides.
+    ctx.fillRect(BORDER_WIDTH, 62, COURT.width - 2 * BORDER_WIDTH, 36);
     drawText(ctx, 'Rotate your device for a better experience', CENTER_X, 80, { size: 24, color: FOREGROUND });
   }
 }
@@ -110,9 +130,9 @@ function drawCourt(ctx, { match, stats, touchMode }) {
   ctx.lineWidth = 2;
   ctx.setLineDash([10, 10]);
   ctx.beginPath();
-  // Starts below the score so the line never crosses the HUD text.
+  // Starts below the score so the line never crosses the HUD text, and stops at the border's inner edge.
   ctx.moveTo(CENTER_X, HUD_BOTTOM);
-  ctx.lineTo(CENTER_X, COURT.height);
+  ctx.lineTo(CENTER_X, COURT.height - BORDER_WIDTH);
   ctx.stroke();
   ctx.setLineDash([]);
 
@@ -127,6 +147,16 @@ function drawCourt(ctx, { match, stats, touchMode }) {
     drawButton(ctx, PAUSE_BUTTON, 'II');
   }
   drawLatency(ctx, stats);
+}
+
+// Inset by half the line width so the whole stroke stays inside the canvas.
+function drawCourtBorder(ctx) {
+  const inset = BORDER_WIDTH / 2;
+  ctx.strokeStyle = DIM;
+  ctx.lineWidth = BORDER_WIDTH;
+  ctx.beginPath();
+  ctx.roundRect(inset, inset, COURT.width - BORDER_WIDTH, COURT.height - BORDER_WIDTH, BORDER_RADIUS);
+  ctx.stroke();
 }
 
 function drawLatency(ctx, stats) {
