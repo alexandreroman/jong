@@ -1,7 +1,7 @@
 // Jong entry point: owns the screen state machine and the animation loop.
 
 import { LatencyStats, createJevController } from './ai.js';
-import { JevError, buildRequestBody, describeError, requestZone } from './api.js';
+import { buildRequestBody, describeError, requestZone } from './api.js';
 import { createMatch, isMatchOver, startRound, step } from './game.js';
 import { createInput } from './input.js';
 import {
@@ -67,7 +67,7 @@ async function submitKey() {
     app.screen = 'menu';
   } catch (error) {
     app.screen = 'key-entry';
-    app.message = error instanceof JevError ? describeError(error.kind) : 'Unexpected error';
+    app.message = describeError(error.kind);
     input.focusKeyField();
   }
 }

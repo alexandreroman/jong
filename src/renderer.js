@@ -122,7 +122,7 @@ function drawCourt(ctx, { match, stats, touchMode }) {
   ctx.fillRect(match.ball.x - BALL_SIZE / 2, match.ball.y - BALL_SIZE / 2, BALL_SIZE, BALL_SIZE);
 
   drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 24, { size: 20 });
-  drawText(ctx, `Round ${Math.max(match.round, 1)}/${ROUNDS}`, CENTER_X, 46, { size: 14, color: DIM });
+  drawText(ctx, `Round ${match.round}/${ROUNDS}`, CENTER_X, 46, { size: 14, color: DIM });
   if (touchMode) {
     drawButton(ctx, PAUSE_BUTTON, 'II');
   }
