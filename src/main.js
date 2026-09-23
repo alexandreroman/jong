@@ -18,6 +18,7 @@ import { setupCanvas } from './viewport.js';
 const ROUND_INTRO_S = 3;
 const POINT_SCORED_S = 1;
 const RESUME_S = 1;
+const MATCH_OVER_GUARD_S = 0.5;
 const MAX_UPDATE_DT = 0.1;
 
 const canvas = document.getElementById('game');
@@ -158,6 +159,10 @@ function handleAction(action) {
       }
       break;
     case 'match-over':
+      if (tap !== null && app.timer > 0) {
+        // A stray tap while the winner is still steering must not skip the results.
+        break;
+      }
       if (action.type === 'quit' || tapped(QUIT_BUTTON)) {
         quitToMenu();
       } else if (action.type === 'confirm' || tap !== null) {
@@ -184,10 +189,14 @@ function update(dt) {
       if (app.timer <= 0) {
         if (isMatchOver(app.match)) {
           app.screen = 'match-over';
+          app.timer = MATCH_OVER_GUARD_S;
         } else {
           beginRound();
         }
       }
+      break;
+    case 'match-over':
+      app.timer -= dt;
       break;
   }
 }
