@@ -2,12 +2,12 @@
 
 import { LatencyStats, createJevController } from './ai.js';
 import { buildRequestBody, describeError, requestDecision } from './api.js';
+import { createFx, updateFx } from './fx.js';
 import { createMatch, isMatchOver, startRound, step } from './game.js';
 import { createInput } from './input.js';
 import {
   CHANGE_KEY_BUTTON,
   KEY_FIELD,
-  PAUSE_BUTTON,
   QUIT_BUTTON,
   START_BUTTON,
   canvasToCourtY,
@@ -26,12 +26,18 @@ const canvas = document.getElementById('game');
 const keyField = document.getElementById('api-key');
 const context = setupCanvas(canvas);
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
-const input = createInput({ canvas, keyField, initialInputType: coarsePointer ? 'touch' : 'keyboard' });
+const input = createInput({
+  canvas,
+  keyField,
+  initialInputType: coarsePointer ? 'touch' : 'keyboard',
+  isControlAt,
+});
 const stats = new LatencyStats();
 
 const app = {
   screen: 'key-entry',
   match: createMatch(),
+  fx: createFx(),
   message: null,
   apiError: null,
   resumeIn: 0,
@@ -101,6 +107,8 @@ function startMatch() {
 
 function beginRound() {
   startRound(app.match);
+  // The ball jumps back to the center, so the old trail would streak across the court.
+  app.fx = createFx();
   jev.reset();
   app.timer = ROUND_INTRO_S;
   app.screen = 'round-intro';
@@ -121,6 +129,27 @@ function quitToMenu() {
   app.apiError = null;
   app.resumeIn = 0;
   app.screen = 'menu';
+}
+
+// The controls that react to a tap on the current screen, matching the hit tests in handleAction.
+function activeControls() {
+  switch (app.screen) {
+    case 'key-entry':
+      return [KEY_FIELD, START_BUTTON];
+    case 'menu':
+      return [CHANGE_KEY_BUTTON];
+    case 'playing':
+      return app.apiError !== null ? [QUIT_BUTTON] : [];
+    case 'paused':
+    case 'match-over':
+      return [QUIT_BUTTON];
+    default:
+      return [];
+  }
+}
+
+function isControlAt(point) {
+  return activeControls().some((rect) => hitTest(rect, point));
 }
 
 function handleAction(action) {
@@ -151,7 +180,7 @@ function handleAction(action) {
         if (action.type === 'quit' || tapped(QUIT_BUTTON)) {
           quitToMenu();
         }
-      } else if (action.type === 'pause' || tapped(PAUSE_BUTTON)) {
+      } else if (action.type === 'pause') {
         pause();
       }
       break;
@@ -215,9 +244,9 @@ function updatePlaying(dt) {
     }
     return;
   }
-  const scorer = step(app.match, dt, {
+  const { scorer, hit } = step(app.match, dt, {
     humanDirection: input.state.direction,
-    humanTargetY: touchTargetY(),
+    humanTargetY: pointerTargetY(),
     jevTargetY: jev.targetY,
   });
   if (scorer !== null) {
@@ -225,16 +254,26 @@ function updatePlaying(dt) {
     app.lastScorer = scorer;
     app.timer = POINT_SCORED_S;
     app.screen = 'point-scored';
+    return;
   }
+  // Effects only advance here, so they freeze with the game while paused or while a Jev error holds play.
+  updateFx(app.fx, dt, { ball: app.match.ball, hit });
 }
 
-// The finger is tracked in canvas coordinates, but the paddle is drawn inside the padded play field.
-function touchTargetY() {
-  const touchY = input.state.touchY;
-  if (touchY === null) {
+// The pointer is tracked in canvas coordinates, but the paddle is drawn inside the padded play field.
+function pointerTargetY() {
+  const pointerY = input.state.pointerY;
+  if (pointerY === null) {
     return null;
   }
-  return canvasToCourtY(touchY);
+  return canvasToCourtY(pointerY);
+}
+
+// The mouse steers the paddle during a rally, so its cursor would only hide part of the court. It comes back on every
+// other screen, and while a Jev error shows the Quit button.
+function updateCursor() {
+  const ballInPlay = app.screen === 'playing' && app.apiError === null;
+  document.body.classList.toggle('hide-cursor', ballInPlay);
 }
 
 function buildView(time) {
@@ -242,6 +281,7 @@ function buildView(time) {
   return {
     screen: app.screen,
     match: app.match,
+    fx: app.fx,
     stats,
     keyLength: input.keyValue.length,
     keyFocused: input.state.keyFocused,
@@ -263,6 +303,7 @@ function frame(time) {
   const dt = Math.min(Math.max(0, (time - lastTime) / 1000), MAX_UPDATE_DT);
   lastTime = time;
   update(dt);
+  updateCursor();
   render(context, buildView(time));
   requestAnimationFrame(frame);
 }

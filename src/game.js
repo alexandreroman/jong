@@ -11,7 +11,7 @@ export const MAX_SERVE_ANGLE = Math.PI / 6;
 export const SPEED_UP = 1.05;
 export const MAX_BALL_SPEED = 700;
 export const MAX_BOUNCE_ANGLE = Math.PI / 3;
-export const PADDLE_SPEED = { keyboard: 420, touch: 600, jev: 360 };
+export const PADDLE_SPEED = { keyboard: 420, pointer: 600, jev: 360 };
 export const MAX_FRAME_DT = 1 / 30;
 export const LEFT_PADDLE_X = PADDLE.margin;
 export const RIGHT_PADDLE_X = COURT.width - PADDLE.margin - PADDLE.width;
@@ -32,7 +32,6 @@ function centeredPaddles() {
 export function createMatch() {
   return {
     round: 0,
-    results: [],
     score: { human: 0, jev: 0 },
     ball: centeredBall(),
     paddles: centeredPaddles(),
@@ -62,12 +61,13 @@ export function startRound(match, random = Math.random) {
 /**
  * Advances the match by `dt` seconds (clamped to 1/30 s).
  *
- * @returns {'human' | 'jev' | null} the player who scored during this step, if any
+ * @returns {{ scorer: 'human' | 'jev' | null, hit: 'human' | 'jev' | null }} the player who scored during this
+ *   step and the player whose paddle hit the ball, if any
  */
 export function step(match, dt, controls) {
   const t = Math.min(dt, MAX_FRAME_DT);
   if (t <= 0) {
-    return null;
+    return { scorer: null, hit: null };
   }
   movePaddles(match, t, controls);
   return moveBall(match, t);
@@ -107,7 +107,7 @@ export function matchWinner(match) {
 function movePaddles(match, t, { humanDirection = 0, humanTargetY = null, jevTargetY = COURT.height / 2 }) {
   const human = humanTargetY === null
     ? match.paddles.human + humanDirection * PADDLE_SPEED.keyboard * t
-    : moveToward(match.paddles.human, humanTargetY, PADDLE_SPEED.touch * t);
+    : moveToward(match.paddles.human, humanTargetY, PADDLE_SPEED.pointer * t);
   match.paddles.human = clampPaddle(human);
   match.paddles.jev = clampPaddle(moveToward(match.paddles.jev, jevTargetY, PADDLE_SPEED.jev * t));
 }
@@ -127,18 +127,19 @@ function moveBall(match, t) {
   const distance = Math.hypot(ball.vx, ball.vy) * t;
   const substeps = Math.max(1, Math.ceil(distance / MAX_SUBSTEP_PX));
   const h = t / substeps;
+  let hit = null;
   for (let i = 0; i < substeps; i++) {
     ball.x += ball.vx * h;
     ball.y += ball.vy * h;
     bounceOffWalls(ball);
-    bounceOffPaddles(match);
+    hit = bounceOffPaddles(match) ?? hit;
     const scorer = scorerOf(ball);
     if (scorer !== null) {
       recordPoint(match, scorer);
-      return scorer;
+      return { scorer, hit };
     }
   }
-  return null;
+  return { scorer: null, hit };
 }
 
 function bounceOffWalls(ball) {
@@ -151,15 +152,20 @@ function bounceOffWalls(ball) {
   }
 }
 
+/** @returns {'human' | 'jev' | null} the player whose paddle returned the ball, if any */
 function bounceOffPaddles(match) {
   const { ball, paddles } = match;
   if (ball.vx < 0 && overlapsPaddle(ball, LEFT_PADDLE_X, paddles.human)) {
     ball.x = LEFT_PADDLE_X + PADDLE.width + BALL_HALF;
     deflect(ball, paddles.human, 1);
-  } else if (ball.vx > 0 && overlapsPaddle(ball, RIGHT_PADDLE_X, paddles.jev)) {
+    return 'human';
+  }
+  if (ball.vx > 0 && overlapsPaddle(ball, RIGHT_PADDLE_X, paddles.jev)) {
     ball.x = RIGHT_PADDLE_X - BALL_HALF;
     deflect(ball, paddles.jev, -1);
+    return 'jev';
   }
+  return null;
 }
 
 function overlapsPaddle(ball, paddleX, paddleY) {
@@ -189,6 +195,5 @@ function scorerOf(ball) {
 
 function recordPoint(match, scorer) {
   match.score[scorer] += 1;
-  match.results.push(scorer);
   match.ball = centeredBall();
 }

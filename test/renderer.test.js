@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { BALL_SIZE } from '../src/game.js';
+import { createFx, updateFx } from '../src/fx.js';
+import { BALL_SIZE, COURT, LEFT_PADDLE_X, RIGHT_PADDLE_X } from '../src/game.js';
 import {
-  KEY_FIELD, PAUSE_BUTTON, QUIT_BUTTON, START_BUTTON, canvasToCourtY, caretVisible, hitTest, render,
+  KEY_FIELD, QUIT_BUTTON, START_BUTTON, canvasToCourtY, caretVisible, hitTest, render,
 } from '../src/renderer.js';
 
 describe('hitTest', () => {
@@ -57,7 +58,7 @@ describe('caretVisible', () => {
 });
 
 // Records every drawing call and the style in effect, and fakes text metrics: 10 px per character, ink 12 px
-// above and 2 px below the baseline.
+// above and 2 px below the baseline. Linear gradients are plain objects that keep their geometry and color stops.
 function recordingContext() {
   const calls = [];
   const ctx = { calls };
@@ -65,8 +66,14 @@ function recordingContext() {
     'fillText', 'save', 'restore', 'moveTo', 'lineTo', 'arc', 'setLineDash', 'translate', 'scale', 'strokeRect']) {
     ctx[name] = (...args) => calls.push({
       name, args, fillStyle: ctx.fillStyle, strokeStyle: ctx.strokeStyle, textAlign: ctx.textAlign,
+      globalAlpha: ctx.globalAlpha,
     });
   }
+  ctx.createLinearGradient = (...args) => {
+    const gradient = { type: 'linear', args, stops: [] };
+    gradient.addColorStop = (offset, color) => gradient.stops.push({ offset, color });
+    return gradient;
+  };
   ctx.measureText = (text) => ({ width: text.length * 10, actualBoundingBoxAscent: 12, actualBoundingBoxDescent: 2 });
   return ctx;
 }
@@ -90,6 +97,30 @@ function renderKeyEntry(overrides = {}) {
 const isKeyFieldOutline = (call) => call.name === 'roundRect' && call.args[0] === KEY_FIELD.x
   && call.args[1] === KEY_FIELD.y;
 const isCaret = (call) => call.name === 'fillRect' && call.args[2] === 2 && call.args[3] === 20;
+
+// Relative luminance of a '#rgb' or '#rrggbb' color, enough to compare how bright two background stops are.
+function luminance(color) {
+  const digits = color.slice(1);
+  const fullDigits = digits.length === 3 ? [...digits].map((digit) => digit + digit).join('') : digits;
+  const [r, g, b] = [0, 2, 4].map((start) => parseInt(fullDigits.slice(start, start + 2), 16));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+describe('render background', () => {
+  const isFullCourtFill = (call) => call.name === 'fillRect' && call.args[0] === 0 && call.args[1] === 0
+    && call.args[2] === COURT.width && call.args[3] === COURT.height;
+
+  it('fills the court with a horizontal gradient that is brighter in the middle than at the edges', () => {
+    const background = renderKeyEntry().find(isFullCourtFill);
+    const gradient = background.fillStyle;
+    assert.equal(gradient.type, 'linear');
+    assert.deepEqual(gradient.args, [0, 0, COURT.width, 0]);
+    assert.deepEqual(gradient.stops.map((stop) => stop.offset), [0, 0.5, 1]);
+    const [left, center, right] = gradient.stops.map((stop) => luminance(stop.color));
+    assert.equal(left, right);
+    assert.ok(center > left);
+  });
+});
 
 describe('render key entry', () => {
   const fieldCenterY = KEY_FIELD.y + KEY_FIELD.height / 2;
@@ -121,7 +152,7 @@ describe('render key entry', () => {
   it('draws the caret right after the placeholder when the field is empty', () => {
     const calls = renderKeyEntry({ keyFocused: true, time: 100 });
     const caret = calls.find(isCaret);
-    const placeholderWidth = 'Type or paste your key'.length * 10;
+    const placeholderWidth = 'Paste your key'.length * 10;
     assert.equal(caret.args[0], 400 + placeholderWidth / 2 + 3);
   });
 
@@ -145,13 +176,12 @@ describe('render court', () => {
     ball: { x: 400, y: 200 },
     score: { human: 0, jev: 0 },
     round: 1,
-    results: ['human'],
   };
   const stats = { last: null, average: 0, samples: [] };
 
-  function renderCourt(screen, apiError = null, touchMode = false) {
+  function renderCourt(screen, apiError = null, touchMode = false, fx = createFx()) {
     const ctx = recordingContext();
-    const view = { screen, apiError, resumeIn: 0, match, stats, timer: 1, lastScorer: 'human' };
+    const view = { screen, apiError, resumeIn: 0, match, fx, stats, timer: 1, lastScorer: 'human' };
     render(ctx, { ...view, touchMode, portrait: false });
     return ctx.calls;
   }
@@ -204,6 +234,20 @@ describe('render court', () => {
     }
   });
 
+  it('draws no per-round breakdown on the match-over screen', () => {
+    const isRoundDetail = (call) => call.name === 'fillText' && /Round \d+:/.test(call.args[0]);
+    assert.ok(!renderCourt('match-over').some(isRoundDetail));
+  });
+
+  it('keeps the match-over texts above the Menu button', () => {
+    for (const touchMode of [false, true]) {
+      const calls = renderCourt('match-over', null, touchMode);
+      const prompt = calls.find((call) => call.name === 'fillText' && call.args[0].endsWith('to play again'));
+      // Drawn with a 'middle' baseline at 16 px, so the text extends about 8 px below its y.
+      assert.ok(prompt.args[2] + 8 < QUIT_BUTTON.y, `prompt above the Menu button (touch: ${touchMode})`);
+    }
+  });
+
   it('lays the HUD out in two columns mirrored around the center line', () => {
     const calls = renderCourt('playing');
     const [you, dash, jev, round, bestOf] = HUD_TEXTS.map((text) => hudText(calls, text));
@@ -214,14 +258,118 @@ describe('render court', () => {
     assert.deepEqual([bestOf.args[1], bestOf.args[2], bestOf.textAlign], [400 + 20, 46, 'left']);
   });
 
-  it('draws the touch pause button during play but not on the match-over screen', () => {
-    const isPauseButton = (call) => call.name === 'roundRect' && call.args[0] === PAUSE_BUTTON.x
-      && call.args[1] === PAUSE_BUTTON.y;
-    assert.ok(renderCourt('playing', null, true).some(isPauseButton));
-    assert.ok(!renderCourt('match-over', null, true).some(isPauseButton));
+  it('draws no touch button on the court during play', () => {
+    const roundRectArgs = (touchMode) => renderCourt('playing', null, touchMode)
+      .filter((call) => call.name === 'roundRect')
+      .map((call) => call.args);
+    assert.deepEqual(roundRectArgs(true), roundRectArgs(false));
+  });
+
+  // A trail square is centered on an old ball position and smaller than the ball.
+  const isTrailSquare = (call) => call.name === 'fillRect' && call.args[2] < BALL_SIZE && call.args[2] === call.args[3];
+
+  function fxWithTrail() {
+    const fx = createFx();
+    updateFx(fx, 1 / 60, { ball: { x: 360, y: 180 }, hit: null });
+    updateFx(fx, 1 / 60, { ball: { x: 380, y: 190 }, hit: null });
+    return fx;
+  }
+
+  it('draws the trail behind the ball, older squares smaller and fainter', () => {
+    const calls = renderCourt('playing', null, false, fxWithTrail());
+    const trail = calls.filter(isTrailSquare);
+    assert.equal(trail.length, 2);
+    const [older, newer] = trail;
+    assert.ok(older.args[2] < newer.args[2]);
+    assert.ok(older.globalAlpha < newer.globalAlpha);
+    assert.ok(newer.globalAlpha < 1);
+    const ball = calls.find(isBall);
+    assert.equal(ball.globalAlpha, 1);
+    assert.ok(calls.indexOf(newer) < calls.indexOf(ball));
+  });
+
+  it('hides the trail whenever the ball is hidden', () => {
+    for (const screen of ['round-intro', 'point-scored', 'paused', 'match-over']) {
+      assert.ok(!renderCourt(screen, null, false, fxWithTrail()).some(isTrailSquare), `trail on ${screen}`);
+    }
+  });
+
+  it('pulls a paddle away from the court center while it recoils', () => {
+    const paddleXs = (fx) => renderCourt('playing', null, false, fx)
+      .filter((call) => call.name === 'fillRect' && call.args[3] === 80)
+      .map((call) => call.args[0]);
+    assert.deepEqual(paddleXs(createFx()), [LEFT_PADDLE_X, RIGHT_PADDLE_X]);
+
+    const humanHit = createFx();
+    updateFx(humanHit, 0, { ball: match.ball, hit: 'human' });
+    assert.deepEqual(paddleXs(humanHit), [LEFT_PADDLE_X - 5, RIGHT_PADDLE_X]);
+
+    const jevHit = createFx();
+    updateFx(jevHit, 0, { ball: match.ball, hit: 'jev' });
+    assert.deepEqual(paddleXs(jevHit), [LEFT_PADDLE_X, RIGHT_PADDLE_X + 5]);
   });
 
   it('hides the latency indicator on the menu', () => {
     assert.ok(!renderCourt('menu').some(isLatencyLabel));
+  });
+
+  // Only the background gradient and the full-court dim may fill behind text; any other translucent black fill
+  // would be a box that breaks the gradient.
+  const isOverlayBox = (call) => call.name === 'fillRect' && call.fillStyle === 'rgba(0, 0, 0, 0.75)'
+    && !(call.args[2] === COURT.width && call.args[3] === COURT.height);
+
+  it('draws banners without a box behind their text', () => {
+    for (const screen of ['round-intro', 'point-scored']) {
+      const calls = renderCourt(screen);
+      assert.ok(calls.some((call) => call.name === 'fillText'), `banner text on ${screen}`);
+      assert.ok(!calls.some(isOverlayBox), `box behind the banner on ${screen}`);
+    }
+  });
+
+  // Fake ink spans 12 px above and 2 px below the baseline. The banner draws after the HUD, which also shows
+  // 'Round 1', so the last matching call is the banner's.
+  const inkOf = (calls, text) => {
+    const baseline = calls.findLast((call) => call.name === 'fillText' && call.args[0] === text).args[2];
+    return { top: baseline - 12, bottom: baseline + 2 };
+  };
+
+  it('centers the point-scored title ink on the court', () => {
+    const { top, bottom } = inkOf(renderCourt('point-scored'), 'You score!');
+    assert.equal((top + bottom) / 2, COURT.height / 2);
+  });
+
+  it('centers the round-intro title and subtitle as one block on the court', () => {
+    const calls = renderCourt('round-intro');
+    const title = inkOf(calls, 'Round 1');
+    const subtitle = inkOf(calls, 'Starting in 1');
+    assert.ok(title.bottom < subtitle.top);
+    assert.equal((title.top + subtitle.bottom) / 2, COURT.height / 2);
+  });
+
+  it('draws the portrait hint without a band behind it', () => {
+    const ctx = recordingContext();
+    const view = { screen: 'playing', apiError: null, resumeIn: 0, match, fx: createFx(), stats, touchMode: true };
+    render(ctx, { ...view, portrait: true });
+    const isHint = (call) => call.name === 'fillText' && call.args[0].startsWith('Rotate your device');
+    assert.ok(ctx.calls.some(isHint));
+    assert.ok(!ctx.calls.some(isOverlayBox));
+  });
+
+  it('draws the portrait hint near the bottom of the court, above the latency label', () => {
+    for (const screen of ['key-entry', 'menu', 'playing']) {
+      const ctx = recordingContext();
+      render(ctx, {
+        screen, keyLength: 0, keyFocused: false, keyCaretSince: 0, time: 0, message: null,
+        apiError: null, resumeIn: 0, match, fx: createFx(), stats, touchMode: true, portrait: true,
+      });
+      const hint = ctx.calls.find((call) => call.name === 'fillText' && call.args[0].startsWith('Rotate your device'));
+      const hintY = hint.args[2];
+      assert.ok(hintY > COURT.height * 0.75, `hint near the bottom on ${screen}`);
+      assert.ok(hintY < COURT.height, `hint inside the court on ${screen}`);
+      const latencyLabel = ctx.calls.find((call) => call.name === 'fillText' && call.args[0].startsWith('Jev ·'));
+      if (latencyLabel) {
+        assert.ok(hintY < latencyLabel.args[2], 'hint above the latency label');
+      }
+    }
   });
 });

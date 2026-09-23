@@ -1,16 +1,24 @@
 // All Canvas drawing for Jong. Reads the view built by main.js and never mutates game or AI state.
 
 import { LATENCY_WINDOW, latencyLevel } from './ai.js';
+import { TRAIL_DURATION_S, recoilOffset } from './fx.js';
 import { BALL_SIZE, COURT, LEFT_PADDLE_X, PADDLE, RIGHT_PADDLE_X, ROUNDS, matchWinner } from './game.js';
 
 const FOREGROUND = '#fff';
-const BACKGROUND = '#000';
+// The court background is a horizontal gradient, faintly lit around the center line and dark at the side edges.
+// Both colors stay very dark so the white paddles, the ball, the text and the dim overlays keep their contrast.
+const BACKGROUND_EDGE = '#000';
+const BACKGROUND_CENTER = '#141820';
 const DIM = '#888';
 const ERROR = '#f55';
 const OVERLAY = 'rgba(0, 0, 0, 0.75)';
 const FONT = 'monospace';
 const LEVEL_COLORS = { good: '#3c3', fair: '#f90', poor: '#e33' };
 const CENTER_X = COURT.width / 2;
+const CENTER_Y = COURT.height / 2;
+const BANNER_TITLE_STYLE = { size: 40, bold: true };
+// Space between the ink of the banner title and its subtitle.
+const BANNER_GAP = 24;
 const HUD_BOTTOM = 60;
 // Horizontal space between the center line and each HUD column, wide enough to fit the score dash between them.
 const HUD_GAP = 20;
@@ -27,6 +35,10 @@ const CARET_BLINK_MS = 530;
 const CARET_WIDTH = 2;
 const CARET_HEIGHT = 20;
 const CARET_GAP = 3;
+// The newest trail square is almost ball-sized and faint; older ones shrink and fade out, so the trail stays subtle.
+const TRAIL_MAX_OPACITY = 0.35;
+const TRAIL_MIN_SCALE = 0.4;
+const TRAIL_MAX_SCALE = 0.9;
 // Gap above and below the play field so paddles and ball, at their extreme positions, stay clear of the border.
 const COURT_PADDING = 10;
 // The court is scaled uniformly (not squashed) to fit between the paddings, then centered horizontally.
@@ -37,11 +49,17 @@ const FIELD = {
   width: COURT.width * FIELD_SCALE,
   height: COURT.height * FIELD_SCALE,
 };
+// Latency label and dot, right-aligned in the bottom-right corner of the court.
+const LATENCY_LABEL_Y = 388;
+// The portrait hint sits near the bottom of the court, clear of the title and the banners. Its 16 px line (about
+// 400 px wide, centered) fits between the key-entry help text (y 350) and the latency label, ending above the
+// label's line and left of the latency sparkline (x >= 610).
+const PORTRAIT_HINT_Y = LATENCY_LABEL_Y - 16;
+const PORTRAIT_HINT_STYLE = { size: 16, color: FOREGROUND };
 
 export const KEY_FIELD = { x: 200, y: 170, width: 400, height: 44 };
 export const START_BUTTON = { x: 330, y: 240, width: 140, height: 40 };
 export const CHANGE_KEY_BUTTON = { x: 290, y: 290, width: 220, height: 36 };
-export const PAUSE_BUTTON = { x: 750, y: 10, width: 40, height: 30 };
 export const QUIT_BUTTON = { x: 330, y: 270, width: 140, height: 40 };
 
 export function hitTest(rect, point) {
@@ -77,8 +95,7 @@ export function render(ctx, view) {
 }
 
 function drawFrame(ctx, view) {
-  ctx.fillStyle = BACKGROUND;
-  ctx.fillRect(0, 0, COURT.width, COURT.height);
+  drawBackground(ctx);
   // Drawn before any content so dim overlays darken it the same way they darken the rest of the court.
   drawCourtBorder(ctx);
 
@@ -102,31 +119,52 @@ function drawFrame(ctx, view) {
       drawPlayOverlay(ctx, view);
   }
 
+  // Texts sit directly on the court, without a backing box, so the background gradient stays unbroken.
   if (view.portrait) {
-    ctx.fillStyle = OVERLAY;
-    // Inset so the band stays inside the border instead of hiding its sides.
-    ctx.fillRect(BORDER_WIDTH, 62, COURT.width - 2 * BORDER_WIDTH, 36);
-    drawText(ctx, 'Rotate your device for a better experience', CENTER_X, 80, { size: 24, color: FOREGROUND });
+    drawText(ctx, 'Rotate your device for a better experience', CENTER_X, PORTRAIT_HINT_Y, PORTRAIT_HINT_STYLE);
   }
+}
+
+function drawBackground(ctx) {
+  const gradient = ctx.createLinearGradient(0, 0, COURT.width, 0);
+  gradient.addColorStop(0, BACKGROUND_EDGE);
+  gradient.addColorStop(0.5, BACKGROUND_CENTER);
+  gradient.addColorStop(1, BACKGROUND_EDGE);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, COURT.width, COURT.height);
+}
+
+function fontFor(size, bold) {
+  return `${bold ? 'bold ' : ''}${size}px ${FONT}`;
 }
 
 function drawText(ctx, text, x, y, { size = 16, color = FOREGROUND, align = 'center', bold = false } = {}) {
   ctx.fillStyle = color;
-  ctx.font = `${bold ? 'bold ' : ''}${size}px ${FONT}`;
+  ctx.font = fontFor(size, bold);
   ctx.textAlign = align;
   ctx.textBaseline = 'middle';
   ctx.fillText(text, x, y);
 }
 
 // Centers the glyphs' actual ink on centerY: the 'middle' baseline sits visibly off-center with monospace fonts.
-function drawCenteredText(ctx, text, x, centerY, { color = FOREGROUND } = {}) {
+function drawCenteredText(ctx, text, x, centerY, { size = 16, color = FOREGROUND, bold = false } = {}) {
   ctx.fillStyle = color;
-  ctx.font = `16px ${FONT}`;
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
-  const metrics = ctx.measureText(text);
+  const metrics = measureInk(ctx, text, { size, bold });
   const baselineY = centerY + (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 2;
   ctx.fillText(text, x, baselineY);
+}
+
+// Measures text from the alphabetic baseline, which is the baseline drawCenteredText draws on.
+function measureInk(ctx, text, { size = 16, bold = false } = {}) {
+  ctx.font = fontFor(size, bold);
+  ctx.textBaseline = 'alphabetic';
+  return ctx.measureText(text);
+}
+
+function inkHeight(ctx, text, style) {
+  const metrics = measureInk(ctx, text, style);
+  return metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
 }
 
 function drawTitle(ctx, y, size) {
@@ -165,7 +203,7 @@ function drawKeyEntry(ctx, view) {
 
 function drawKeyField(ctx, { keyLength, keyFocused, keyCaretSince, time, touchMode }) {
   strokeControl(ctx, KEY_FIELD, keyFocused ? FOREGROUND : DIM);
-  const placeholder = touchMode ? 'Tap here to type' : 'Type or paste your key';
+  const placeholder = touchMode ? 'Tap to paste your key' : 'Paste your key';
   const hasKey = keyLength > 0;
   const fieldText = hasKey ? '•'.repeat(Math.min(keyLength, 32)) : placeholder;
   const centerY = KEY_FIELD.y + KEY_FIELD.height / 2;
@@ -186,7 +224,7 @@ function drawMenu(ctx, { touchMode }) {
   drawButton(ctx, CHANGE_KEY_BUTTON, touchMode ? 'Change API key' : 'Change API key (K)');
 }
 
-function drawCourt(ctx, { screen, apiError, match, stats, touchMode }) {
+function drawCourt(ctx, { screen, apiError, match, fx, stats }) {
   // The center line, the ball and the latency indicator only show while the game runs (not frozen by a Jev error),
   // so banners and overlays sit on a quieter court.
   const active = screen === 'playing' && !apiError;
@@ -195,15 +233,11 @@ function drawCourt(ctx, { screen, apiError, match, stats, touchMode }) {
     // Drawn before the field so the Jev paddle passes over the indicator instead of disappearing beneath it.
     drawLatency(ctx, stats);
   }
-  drawField(ctx, match, { showBall: active });
+  drawField(ctx, match, fx, { showBall: active });
 
-  // The match-over screen already shows the final score and every round's result, and a finished match can't be paused.
-  const showHud = screen !== 'match-over';
-  if (showHud) {
+  // The match-over screen already shows the final score.
+  if (screen !== 'match-over') {
     drawHud(ctx, match);
-  }
-  if (showHud && touchMode) {
-    drawButton(ctx, PAUSE_BUTTON, 'II');
   }
 }
 
@@ -232,7 +266,7 @@ function drawCenterLine(ctx) {
 }
 
 // Paddles and ball live in court coordinates; the transform maps them into the padded play field.
-function drawField(ctx, match, { showBall }) {
+function drawField(ctx, match, fx, { showBall }) {
   ctx.save();
   // Clipping makes a scoring ball vanish at the field's side edge instead of drifting into the padding.
   ctx.beginPath();
@@ -241,12 +275,27 @@ function drawField(ctx, match, { showBall }) {
   ctx.translate(FIELD.x, FIELD.y);
   ctx.scale(FIELD_SCALE, FIELD_SCALE);
   ctx.fillStyle = FOREGROUND;
-  ctx.fillRect(LEFT_PADDLE_X, match.paddles.human - PADDLE.height / 2, PADDLE.width, PADDLE.height);
-  ctx.fillRect(RIGHT_PADDLE_X, match.paddles.jev - PADDLE.height / 2, PADDLE.width, PADDLE.height);
+  // Recoil pulls each paddle away from the court center; it only moves the drawing, never the physics.
+  const humanX = LEFT_PADDLE_X - recoilOffset(fx, 'human');
+  const jevX = RIGHT_PADDLE_X + recoilOffset(fx, 'jev');
+  ctx.fillRect(humanX, match.paddles.human - PADDLE.height / 2, PADDLE.width, PADDLE.height);
+  ctx.fillRect(jevX, match.paddles.jev - PADDLE.height / 2, PADDLE.width, PADDLE.height);
   if (showBall) {
+    drawTrail(ctx, fx.trail);
     ctx.fillRect(match.ball.x - BALL_SIZE / 2, match.ball.y - BALL_SIZE / 2, BALL_SIZE, BALL_SIZE);
   }
   ctx.restore();
+}
+
+// Squares like the ball itself, oldest first so newer ones are drawn on top.
+function drawTrail(ctx, trail) {
+  for (const point of trail) {
+    const freshness = 1 - point.age / TRAIL_DURATION_S;
+    const size = BALL_SIZE * (TRAIL_MIN_SCALE + (TRAIL_MAX_SCALE - TRAIL_MIN_SCALE) * freshness);
+    ctx.globalAlpha = TRAIL_MAX_OPACITY * freshness;
+    ctx.fillRect(point.x - size / 2, point.y - size / 2, size, size);
+  }
+  ctx.globalAlpha = 1;
 }
 
 // Inset by half the line width so the whole stroke stays inside the canvas.
@@ -261,7 +310,7 @@ function drawCourtBorder(ctx) {
 
 function drawLatency(ctx, stats) {
   const right = COURT.width - 10;
-  const y = 388;
+  const y = LATENCY_LABEL_Y;
   const last = stats.last;
   const label = last === null
     ? 'Jev · — ms'
@@ -300,13 +349,18 @@ function drawSparkline(ctx, samples, box) {
   ctx.stroke();
 }
 
+// No backing box: drawCourt already hides the center line and the ball on banner screens, so nothing moves behind.
+// The title alone, or the title and subtitle as one block, is centered on the court.
 function drawBanner(ctx, title, subtitle) {
-  ctx.fillStyle = OVERLAY;
-  ctx.fillRect(200, 140, 400, 110);
-  drawText(ctx, title, CENTER_X, 180, { size: 40, bold: true });
-  if (subtitle) {
-    drawText(ctx, subtitle, CENTER_X, 225);
+  if (!subtitle) {
+    drawCenteredText(ctx, title, CENTER_X, CENTER_Y, BANNER_TITLE_STYLE);
+    return;
   }
+  const titleHeight = inkHeight(ctx, title, BANNER_TITLE_STYLE);
+  const subtitleHeight = inkHeight(ctx, subtitle);
+  const top = CENTER_Y - (titleHeight + BANNER_GAP + subtitleHeight) / 2;
+  drawCenteredText(ctx, title, CENTER_X, top + titleHeight / 2, BANNER_TITLE_STYLE);
+  drawCenteredText(ctx, subtitle, CENTER_X, top + titleHeight + BANNER_GAP + subtitleHeight / 2);
 }
 
 function drawPlayOverlay(ctx, view) {
@@ -334,12 +388,9 @@ function drawPlayOverlay(ctx, view) {
 function drawMatchOver(ctx, { match, touchMode }) {
   dimScreen(ctx);
   const title = matchWinner(match) === 'human' ? 'You win' : 'Jev wins';
-  const rounds = match.results
-    .map((winner, i) => `Round ${i + 1}: ${winner === 'human' ? 'You' : 'Jev'}`)
-    .join('    ');
+  // Title, score and prompt are spaced 50 px apart, like the paused screen, leaving room above the Menu button.
   drawText(ctx, title, CENTER_X, 120, { size: 48, bold: true });
   drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 170, { size: 22 });
-  drawText(ctx, rounds, CENTER_X, 205, { size: 14, color: DIM });
-  drawText(ctx, touchMode ? 'Tap to play again' : 'Press Space to play again', CENTER_X, 240);
+  drawText(ctx, touchMode ? 'Tap to play again' : 'Press Space to play again', CENTER_X, 220);
   drawButton(ctx, QUIT_BUTTON, touchMode ? 'Menu' : 'Menu (Q)');
 }

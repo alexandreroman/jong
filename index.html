@@ -11,12 +11,18 @@
         height: 100%;
         overflow: hidden;
         background: #111;
+        /* A finger anywhere on the page drives the paddle, so no browser pan or zoom gesture may start. */
+        touch-action: none;
       }
 
       body {
         display: flex;
         align-items: center;
         justify-content: center;
+      }
+
+      .hide-cursor {
+        cursor: none;
       }
 
       #game {

@@ -21,13 +21,27 @@ export function toLogicalPoint(clientX, clientY, rect) {
   };
 }
 
-export function createInput({ canvas, keyField, target = window, initialInputType = 'keyboard' }) {
+/**
+ * Wires keyboard, pointer and key-field listeners. `isControlAt(point)` tells whether a court point lies on a button
+ * or field currently on screen; a touch starting there presses the control without grabbing the paddle.
+ *
+ * The paddle follows `state.pointerY` (a court y) when it is set, and `state.direction` otherwise. The most recent
+ * input wins: a dragging finger or a moving mouse sets the pointer target, and any game key hands control back to the
+ * keyboard by clearing it until the pointer moves again.
+ */
+export function createInput({
+  canvas,
+  keyField,
+  target = window,
+  initialInputType = 'keyboard',
+  isControlAt = () => false,
+}) {
   const pressed = new Set();
   const listeners = [];
   // keyCaretSince is the time of the last focus or edit of the key field; the caret blink restarts from it.
   const state = {
     direction: 0,
-    touchY: null,
+    pointerY: null,
     lastInputType: initialInputType,
     keyFocused: false,
     keyCaretSince: 0,
@@ -52,6 +66,7 @@ export function createInput({ canvas, keyField, target = window, initialInputTyp
       return;
     }
     state.lastInputType = 'keyboard';
+    state.pointerY = null;
     if (UP_KEYS.has(key) || DOWN_KEYS.has(key)) {
       event.preventDefault();
       pressed.add(key);
@@ -90,30 +105,42 @@ export function createInput({ canvas, keyField, target = window, initialInputTyp
     emit({ type: 'key-edited' });
   });
 
-  canvas.addEventListener('pointerdown', (event) => {
-    // Keeps the canvas from stealing focus back from the key field right after a tap focused it.
+  // Pointer listeners sit on the whole page, not just the canvas, so a finger anywhere on the screen (including the
+  // letterbox margins around the court) drives the paddle. Touch pointers are implicitly captured by the element they
+  // started on, and their events bubble up here, so a drag keeps being tracked wherever it goes.
+  target.addEventListener('pointerdown', (event) => {
+    const isTouch = event.pointerType === 'touch';
+    const onCanvas = event.target === canvas;
+    // Mouse clicks outside the court mean nothing to the game.
+    if (!isTouch && !onCanvas) {
+      return;
+    }
+    // Keeps the page from stealing focus back from the key field right after a tap focused it.
     event.preventDefault();
     const point = pointFrom(event);
-    state.lastInputType = event.pointerType === 'touch' ? 'touch' : 'keyboard';
-    if (event.pointerType === 'touch' && point.x < LOGICAL_WIDTH / 2) {
+    state.lastInputType = isTouch ? 'touch' : 'keyboard';
+    // A tap on a button must only press it: the finger stays off the paddle.
+    if (isTouch && !isControlAt(point)) {
       paddlePointerId = event.pointerId;
-      state.touchY = point.y;
-      canvas.setPointerCapture(event.pointerId);
+      state.pointerY = point.y;
     }
     emit({ type: 'tap', x: point.x, y: point.y });
   });
 
-  canvas.addEventListener('pointermove', (event) => {
-    if (event.pointerId === paddlePointerId) {
-      state.touchY = pointFrom(event).y;
+  // A mouse (or a hovering pen) steers the paddle just by moving, no button needed. It has no release, so the target
+  // stays where the pointer was last seen: leaving the window or switching apps leaves the paddle in place.
+  target.addEventListener('pointermove', (event) => {
+    const isMouseLike = event.pointerType === 'mouse' || event.pointerType === 'pen';
+    if (isMouseLike || event.pointerId === paddlePointerId) {
+      state.pointerY = pointFrom(event).y;
     }
   });
 
   for (const type of ['pointerup', 'pointercancel']) {
-    canvas.addEventListener(type, (event) => {
+    target.addEventListener(type, (event) => {
       if (event.pointerId === paddlePointerId) {
         paddlePointerId = null;
-        state.touchY = null;
+        state.pointerY = null;
       }
     });
   }
