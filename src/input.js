@@ -24,6 +24,10 @@ export function toLogicalPoint(clientX, clientY, rect) {
 /**
  * Wires keyboard, pointer and key-field listeners. `isControlAt(point)` tells whether a court point lies on a button
  * or field currently on screen; a touch starting there presses the control without grabbing the paddle.
+ *
+ * The paddle follows `state.pointerY` (a court y) when it is set, and `state.direction` otherwise. The most recent
+ * input wins: a dragging finger or a moving mouse sets the pointer target, and any game key hands control back to the
+ * keyboard by clearing it until the pointer moves again.
  */
 export function createInput({
   canvas,
@@ -37,7 +41,7 @@ export function createInput({
   // keyCaretSince is the time of the last focus or edit of the key field; the caret blink restarts from it.
   const state = {
     direction: 0,
-    touchY: null,
+    pointerY: null,
     lastInputType: initialInputType,
     keyFocused: false,
     keyCaretSince: 0,
@@ -62,6 +66,7 @@ export function createInput({
       return;
     }
     state.lastInputType = 'keyboard';
+    state.pointerY = null;
     if (UP_KEYS.has(key) || DOWN_KEYS.has(key)) {
       event.preventDefault();
       pressed.add(key);
@@ -117,14 +122,17 @@ export function createInput({
     // A tap on a button must only press it: the finger stays off the paddle.
     if (isTouch && !isControlAt(point)) {
       paddlePointerId = event.pointerId;
-      state.touchY = point.y;
+      state.pointerY = point.y;
     }
     emit({ type: 'tap', x: point.x, y: point.y });
   });
 
+  // A mouse (or a hovering pen) steers the paddle just by moving, no button needed. It has no release, so the target
+  // stays where the pointer was last seen: leaving the window or switching apps leaves the paddle in place.
   target.addEventListener('pointermove', (event) => {
-    if (event.pointerId === paddlePointerId) {
-      state.touchY = pointFrom(event).y;
+    const isMouseLike = event.pointerType === 'mouse' || event.pointerType === 'pen';
+    if (isMouseLike || event.pointerId === paddlePointerId) {
+      state.pointerY = pointFrom(event).y;
     }
   });
 
@@ -132,7 +140,7 @@ export function createInput({
     target.addEventListener(type, (event) => {
       if (event.pointerId === paddlePointerId) {
         paddlePointerId = null;
-        state.touchY = null;
+        state.pointerY = null;
       }
     });
   }

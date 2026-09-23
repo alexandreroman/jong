@@ -11,7 +11,7 @@ export const MAX_SERVE_ANGLE = Math.PI / 6;
 export const SPEED_UP = 1.05;
 export const MAX_BALL_SPEED = 700;
 export const MAX_BOUNCE_ANGLE = Math.PI / 3;
-export const PADDLE_SPEED = { keyboard: 420, touch: 600, jev: 360 };
+export const PADDLE_SPEED = { keyboard: 420, pointer: 600, jev: 360 };
 export const MAX_FRAME_DT = 1 / 30;
 export const LEFT_PADDLE_X = PADDLE.margin;
 export const RIGHT_PADDLE_X = COURT.width - PADDLE.margin - PADDLE.width;
@@ -108,7 +108,7 @@ export function matchWinner(match) {
 function movePaddles(match, t, { humanDirection = 0, humanTargetY = null, jevTargetY = COURT.height / 2 }) {
   const human = humanTargetY === null
     ? match.paddles.human + humanDirection * PADDLE_SPEED.keyboard * t
-    : moveToward(match.paddles.human, humanTargetY, PADDLE_SPEED.touch * t);
+    : moveToward(match.paddles.human, humanTargetY, PADDLE_SPEED.pointer * t);
   match.paddles.human = clampPaddle(human);
   match.paddles.jev = clampPaddle(moveToward(match.paddles.jev, jevTargetY, PADDLE_SPEED.jev * t));
 }

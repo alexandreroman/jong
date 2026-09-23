@@ -185,13 +185,13 @@ describe('step: paddles', () => {
     assert.ok(Math.abs(match.paddles.human - 214) < 1e-9);
   });
 
-  it('moves the human paddle toward the finger at 600 px/s', () => {
+  it('moves the human paddle toward the pointer at 600 px/s', () => {
     const match = matchWithBall({ x: 400, y: 200, vx: 0, vy: 0 });
     step(match, FRAME, { humanTargetY: 300 });
     assert.ok(Math.abs(match.paddles.human - 220) < 1e-9);
   });
 
-  it('stops exactly on a close touch target', () => {
+  it('stops exactly on a close pointer target', () => {
     const match = matchWithBall({ x: 400, y: 200, vx: 0, vy: 0 });
     step(match, FRAME, { humanTargetY: 205 });
     assert.equal(match.paddles.human, 205);

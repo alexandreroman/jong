@@ -16,6 +16,12 @@ HTML canvas. The only server is a tiny local proxy.
   npm dependencies
 - **Hit feedback** — the ball leaves a short fading trail,
   and a paddle recoils when it strikes the ball
+- **Move your paddle** — W/S, the arrow keys or the mouse
+  (just move it, no button needed); the latest input wins,
+  so an arrow key takes over from the mouse until the
+  mouse moves again. The mouse cursor hides while the ball
+  is in play, and the paddle stays put when the cursor
+  leaves the window
 - **Mobile-friendly** — the 800x400 court scales down to
   fit smaller screens, with touch controls: drag a finger
   anywhere on the screen to move your paddle; the game

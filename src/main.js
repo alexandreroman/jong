@@ -246,7 +246,7 @@ function updatePlaying(dt) {
   }
   const { scorer, hit } = step(app.match, dt, {
     humanDirection: input.state.direction,
-    humanTargetY: touchTargetY(),
+    humanTargetY: pointerTargetY(),
     jevTargetY: jev.targetY,
   });
   if (scorer !== null) {
@@ -260,13 +260,20 @@ function updatePlaying(dt) {
   updateFx(app.fx, dt, { ball: app.match.ball, hit });
 }
 
-// The finger is tracked in canvas coordinates, but the paddle is drawn inside the padded play field.
-function touchTargetY() {
-  const touchY = input.state.touchY;
-  if (touchY === null) {
+// The pointer is tracked in canvas coordinates, but the paddle is drawn inside the padded play field.
+function pointerTargetY() {
+  const pointerY = input.state.pointerY;
+  if (pointerY === null) {
     return null;
   }
-  return canvasToCourtY(touchY);
+  return canvasToCourtY(pointerY);
+}
+
+// The mouse steers the paddle during a rally, so its cursor would only hide part of the court. It comes back on every
+// other screen, and while a Jev error shows the Quit button.
+function updateCursor() {
+  const ballInPlay = app.screen === 'playing' && app.apiError === null;
+  document.body.classList.toggle('hide-cursor', ballInPlay);
 }
 
 function buildView(time) {
@@ -296,6 +303,7 @@ function frame(time) {
   const dt = Math.min(Math.max(0, (time - lastTime) / 1000), MAX_UPDATE_DT);
   lastTime = time;
   update(dt);
+  updateCursor();
   render(context, buildView(time));
   requestAnimationFrame(frame);
 }
