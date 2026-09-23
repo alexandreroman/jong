@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { QUIT_BUTTON, canvasToCourtY, hitTest } from '../src/renderer.js';
+import {
+  KEY_FIELD, QUIT_BUTTON, START_BUTTON, canvasToCourtY, caretVisible, hitTest, render,
+} from '../src/renderer.js';
 
 describe('hitTest', () => {
   const rect = { x: 100, y: 50, width: 40, height: 20 };
@@ -36,5 +38,100 @@ describe('canvasToCourtY', () => {
   it('maps the border area outside the court', () => {
     assert.ok(canvasToCourtY(2) < 0);
     assert.ok(canvasToCourtY(398) > 400);
+  });
+});
+
+describe('caretVisible', () => {
+  it('blinks on for about 530 ms, then off for the same time', () => {
+    assert.equal(caretVisible(1000, 1000), true);
+    assert.equal(caretVisible(1529, 1000), true);
+    assert.equal(caretVisible(1530, 1000), false);
+    assert.equal(caretVisible(2059, 1000), false);
+    assert.equal(caretVisible(2060, 1000), true);
+  });
+
+  it('shows the caret when the blink restarts in the future of the frame time', () => {
+    assert.equal(caretVisible(990, 1000), true);
+  });
+});
+
+// Records every drawing call and the style in effect, and fakes text metrics: 10 px per character, ink 12 px
+// above and 2 px below the baseline.
+function recordingContext() {
+  const calls = [];
+  const ctx = { calls };
+  for (const name of ['clearRect', 'fillRect', 'beginPath', 'roundRect', 'rect', 'clip', 'stroke', 'fill',
+    'fillText', 'save', 'restore', 'moveTo', 'lineTo', 'arc', 'setLineDash', 'translate', 'scale', 'strokeRect']) {
+    ctx[name] = (...args) => calls.push({ name, args, fillStyle: ctx.fillStyle, strokeStyle: ctx.strokeStyle });
+  }
+  ctx.measureText = (text) => ({ width: text.length * 10, actualBoundingBoxAscent: 12, actualBoundingBoxDescent: 2 });
+  return ctx;
+}
+
+function renderKeyEntry(overrides = {}) {
+  const ctx = recordingContext();
+  render(ctx, {
+    screen: 'key-entry',
+    keyLength: 0,
+    keyFocused: false,
+    keyCaretSince: 0,
+    time: 0,
+    message: null,
+    touchMode: false,
+    portrait: false,
+    ...overrides,
+  });
+  return ctx.calls;
+}
+
+const isKeyFieldOutline = (call) => call.name === 'roundRect' && call.args[0] === KEY_FIELD.x
+  && call.args[1] === KEY_FIELD.y;
+const isCaret = (call) => call.name === 'fillRect' && call.args[2] === 2 && call.args[3] === 20;
+
+describe('render key entry', () => {
+  const fieldCenterY = KEY_FIELD.y + KEY_FIELD.height / 2;
+
+  it('draws the key field and buttons with rounded corners', () => {
+    const calls = renderKeyEntry();
+    assert.ok(calls.some(isKeyFieldOutline));
+    assert.ok(calls.some((call) => call.name === 'roundRect' && call.args[0] === START_BUTTON.x
+      && call.args[4] === 8));
+    assert.ok(!calls.some((call) => call.name === 'strokeRect'));
+  });
+
+  it('highlights the key field border only while it has focus', () => {
+    const outlineColor = (calls) => {
+      const outline = calls.findIndex(isKeyFieldOutline);
+      return calls.slice(outline).find((call) => call.name === 'stroke').strokeStyle;
+    };
+    assert.equal(outlineColor(renderKeyEntry({ keyFocused: true })), '#fff');
+    assert.equal(outlineColor(renderKeyEntry({ keyFocused: false })), '#888');
+  });
+
+  it('draws the caret right after the masked key, centered on the field', () => {
+    const calls = renderKeyEntry({ keyLength: 4, keyFocused: true, time: 100 });
+    const caret = calls.find(isCaret);
+    // Four dots are 40 px wide and centered on x = 400, so the text ends at x = 420.
+    assert.deepEqual(caret.args, [423, fieldCenterY - 10, 2, 20]);
+  });
+
+  it('draws the caret right after the placeholder when the field is empty', () => {
+    const calls = renderKeyEntry({ keyFocused: true, time: 100 });
+    const caret = calls.find(isCaret);
+    const placeholderWidth = 'Type or paste your key'.length * 10;
+    assert.equal(caret.args[0], 400 + placeholderWidth / 2 + 3);
+  });
+
+  it('hides the caret during the off phase of the blink and when the field is not focused', () => {
+    assert.ok(!renderKeyEntry({ keyLength: 4, keyFocused: true, keyCaretSince: 0, time: 600 }).some(isCaret));
+    assert.ok(!renderKeyEntry({ keyLength: 4, keyFocused: false, time: 100 }).some(isCaret));
+  });
+
+  it('centers the ink of the field text and button labels vertically', () => {
+    const calls = renderKeyEntry({ keyLength: 3 });
+    const baselineOf = (text) => calls.find((call) => call.name === 'fillText' && call.args[0] === text).args[2];
+    // Ink spans 12 px above and 2 px below the baseline, so the baseline sits 5 px below the center.
+    assert.equal(baselineOf('•••'), fieldCenterY + 5);
+    assert.equal(baselineOf('Start (Enter)'), START_BUTTON.y + START_BUTTON.height / 2 + 5);
   });
 });

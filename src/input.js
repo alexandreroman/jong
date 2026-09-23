@@ -24,7 +24,14 @@ export function toLogicalPoint(clientX, clientY, rect) {
 export function createInput({ canvas, keyField, target = window, initialInputType = 'keyboard' }) {
   const pressed = new Set();
   const listeners = [];
-  const state = { direction: 0, touchY: null, lastInputType: initialInputType };
+  // keyCaretSince is the time of the last focus or edit of the key field; the caret blink restarts from it.
+  const state = {
+    direction: 0,
+    touchY: null,
+    lastInputType: initialInputType,
+    keyFocused: false,
+    keyCaretSince: 0,
+  };
   let paddlePointerId = null;
 
   const emit = (action) => listeners.forEach((listener) => listener(action));
@@ -66,6 +73,21 @@ export function createInput({ canvas, keyField, target = window, initialInputTyp
   target.addEventListener('blur', () => {
     pressed.clear();
     updateDirection();
+  });
+
+  const restartCaret = () => {
+    state.keyCaretSince = performance.now();
+  };
+  keyField.addEventListener('focus', () => {
+    state.keyFocused = true;
+    restartCaret();
+  });
+  keyField.addEventListener('blur', () => {
+    state.keyFocused = false;
+  });
+  keyField.addEventListener('input', () => {
+    restartCaret();
+    emit({ type: 'key-edited' });
   });
 
   canvas.addEventListener('pointerdown', (event) => {

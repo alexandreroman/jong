@@ -121,4 +121,26 @@ describe('createInput', () => {
     });
     assert.equal(actions.length, 0);
   });
+
+  it('tracks the key field focus', () => {
+    assert.equal(input.state.keyFocused, false);
+    keyField.dispatchEvent(event('focus'));
+    assert.equal(input.state.keyFocused, true);
+    keyField.dispatchEvent(event('blur'));
+    assert.equal(input.state.keyFocused, false);
+  });
+
+  it('restarts the caret blink when the key field gains focus or changes', () => {
+    const before = performance.now();
+    keyField.dispatchEvent(event('focus'));
+    const focusedAt = input.state.keyCaretSince;
+    assert.ok(focusedAt >= before);
+    keyField.dispatchEvent(event('input'));
+    assert.ok(input.state.keyCaretSince >= focusedAt);
+  });
+
+  it('emits a key-edited action when the key field changes', () => {
+    keyField.dispatchEvent(event('input'));
+    assert.deepEqual(actions, [{ type: 'key-edited' }]);
+  });
 });
