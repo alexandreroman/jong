@@ -14,6 +14,16 @@ const CENTER_X = COURT.width / 2;
 const HUD_BOTTOM = 60;
 const BORDER_WIDTH = 2;
 const BORDER_RADIUS = 12;
+// Gap above and below the play field so paddles and ball, at their extreme positions, stay clear of the border.
+const COURT_PADDING = 10;
+// The court is scaled uniformly (not squashed) to fit between the paddings, then centered horizontally.
+const FIELD_SCALE = (COURT.height - 2 * COURT_PADDING) / COURT.height;
+const FIELD = {
+  x: (COURT.width * (1 - FIELD_SCALE)) / 2,
+  y: COURT_PADDING,
+  width: COURT.width * FIELD_SCALE,
+  height: COURT.height * FIELD_SCALE,
+};
 
 export const KEY_FIELD = { x: 200, y: 170, width: 400, height: 44 };
 export const START_BUTTON = { x: 330, y: 240, width: 140, height: 40 };
@@ -24,6 +34,11 @@ export const QUIT_BUTTON = { x: 330, y: 270, width: 140, height: 40 };
 export function hitTest(rect, point) {
   return point.x >= rect.x && point.x <= rect.x + rect.width
     && point.y >= rect.y && point.y <= rect.y + rect.height;
+}
+
+/** Converts a canvas y coordinate to a court y coordinate by undoing the play field transform. */
+export function canvasToCourtY(y) {
+  return (y - FIELD.y) / FIELD_SCALE;
 }
 
 /** Draws one frame for the given view. */
@@ -130,16 +145,13 @@ function drawCourt(ctx, { match, stats, touchMode }) {
   ctx.lineWidth = 2;
   ctx.setLineDash([10, 10]);
   ctx.beginPath();
-  // Starts below the score so the line never crosses the HUD text, and stops at the border's inner edge.
+  // Starts below the score so the line never crosses the HUD text, and stops at the bottom of the play field.
   ctx.moveTo(CENTER_X, HUD_BOTTOM);
-  ctx.lineTo(CENTER_X, COURT.height - BORDER_WIDTH);
+  ctx.lineTo(CENTER_X, FIELD.y + FIELD.height);
   ctx.stroke();
   ctx.setLineDash([]);
 
-  ctx.fillStyle = FOREGROUND;
-  ctx.fillRect(LEFT_PADDLE_X, match.paddles.human - PADDLE.height / 2, PADDLE.width, PADDLE.height);
-  ctx.fillRect(RIGHT_PADDLE_X, match.paddles.jev - PADDLE.height / 2, PADDLE.width, PADDLE.height);
-  ctx.fillRect(match.ball.x - BALL_SIZE / 2, match.ball.y - BALL_SIZE / 2, BALL_SIZE, BALL_SIZE);
+  drawField(ctx, match);
 
   drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 24, { size: 20 });
   drawText(ctx, `Round ${match.round}/${ROUNDS}`, CENTER_X, 46, { size: 14, color: DIM });
@@ -147,6 +159,22 @@ function drawCourt(ctx, { match, stats, touchMode }) {
     drawButton(ctx, PAUSE_BUTTON, 'II');
   }
   drawLatency(ctx, stats);
+}
+
+// Paddles and ball live in court coordinates; the transform maps them into the padded play field.
+function drawField(ctx, match) {
+  ctx.save();
+  // Clipping makes a scoring ball vanish at the field's side edge instead of drifting into the padding.
+  ctx.beginPath();
+  ctx.rect(FIELD.x, FIELD.y, FIELD.width, FIELD.height);
+  ctx.clip();
+  ctx.translate(FIELD.x, FIELD.y);
+  ctx.scale(FIELD_SCALE, FIELD_SCALE);
+  ctx.fillStyle = FOREGROUND;
+  ctx.fillRect(LEFT_PADDLE_X, match.paddles.human - PADDLE.height / 2, PADDLE.width, PADDLE.height);
+  ctx.fillRect(RIGHT_PADDLE_X, match.paddles.jev - PADDLE.height / 2, PADDLE.width, PADDLE.height);
+  ctx.fillRect(match.ball.x - BALL_SIZE / 2, match.ball.y - BALL_SIZE / 2, BALL_SIZE, BALL_SIZE);
+  ctx.restore();
 }
 
 // Inset by half the line width so the whole stroke stays inside the canvas.
