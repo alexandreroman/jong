@@ -9,6 +9,8 @@ model. A match is best of 3 rounds: the first player to win
 2 rounds wins. Everything runs in the browser on a single
 HTML canvas. The only server is a tiny local proxy.
 
+https://github.com/user-attachments/assets/914feee9-02b8-4a1f-a592-07869fc9ca5f
+
 ## Features
 
 - **Jev as your opponent** — the AI paddle is steered by
