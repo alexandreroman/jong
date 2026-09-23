@@ -174,23 +174,21 @@ function drawKeyField(ctx, { keyLength, keyFocused, keyCaretSince, time, touchMo
   ctx.fillRect(caretX, centerY - CARET_HEIGHT / 2, CARET_WIDTH, CARET_HEIGHT);
 }
 
-function drawMenu(ctx, { touchMode, stats }) {
+function drawMenu(ctx, { touchMode }) {
   drawTitle(ctx, 130, 72);
   drawText(ctx, touchMode ? 'Tap to start' : 'Press Space to start', CENTER_X, 220, { size: 20 });
   drawButton(ctx, CHANGE_KEY_BUTTON, touchMode ? 'Change API key' : 'Change API key (K)');
-  drawLatency(ctx, stats);
 }
 
 function drawCourt(ctx, { screen, apiError, match, stats, touchMode }) {
-  // The center line and the ball only show while the game runs (not frozen by a Jev error), so banners and overlays
-  // sit on a quieter court.
+  // The center line, the ball and the latency indicator only show while the game runs (not frozen by a Jev error),
+  // so banners and overlays sit on a quieter court.
   const active = screen === 'playing' && !apiError;
   if (active) {
     drawCenterLine(ctx);
+    // Drawn before the field so the Jev paddle passes over the indicator instead of disappearing beneath it.
+    drawLatency(ctx, stats);
   }
-
-  // Drawn before the field so the Jev paddle passes over the indicator instead of disappearing beneath it.
-  drawLatency(ctx, stats);
   drawField(ctx, match, { showBall: active });
 
   drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 24, { size: 20 });
@@ -247,7 +245,7 @@ function drawLatency(ctx, stats) {
   const label = last === null
     ? 'Jev · — ms'
     : `Jev · ${Math.round(last)} ms · avg ${Math.round(stats.average)} ms`;
-  drawText(ctx, label, right, y, { size: 12, align: 'right' });
+  drawText(ctx, label, right, y, { size: 12, align: 'right', color: DIM });
 
   const labelWidth = ctx.measureText(label).width;
   ctx.fillStyle = last === null ? DIM : LEVEL_COLORS[latencyLevel(last)];

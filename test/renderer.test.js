@@ -155,27 +155,40 @@ describe('render court', () => {
   }
 
   const isCenterLine = (call) => call.name === 'setLineDash' && call.args[0].length > 0;
+  const isLatencyLabel = (call) => call.name === 'fillText' && call.args[0].startsWith('Jev ·');
   // The ball is the only BALL_SIZE square drawn in court coordinates, centered on match.ball.
   const isBall = (call) => call.name === 'fillRect' && call.args[0] === match.ball.x - BALL_SIZE / 2
     && call.args[1] === match.ball.y - BALL_SIZE / 2 && call.args[2] === BALL_SIZE;
 
-  it('draws the dashed center line and the ball while the game runs', () => {
+  it('draws the dashed center line, the ball and the latency while the game runs', () => {
     const calls = renderCourt('playing');
     assert.ok(calls.some(isCenterLine));
     assert.ok(calls.some(isBall));
+    assert.ok(calls.some(isLatencyLabel));
   });
 
-  it('hides the center line and the ball on every other court screen', () => {
+  it('draws the latency label in the same gray as the sparkline', () => {
+    const label = renderCourt('playing').find(isLatencyLabel);
+    assert.equal(label.fillStyle, '#888');
+  });
+
+  it('hides the center line, the ball and the latency on every other court screen', () => {
     for (const screen of ['round-intro', 'point-scored', 'paused', 'match-over']) {
       const calls = renderCourt(screen);
       assert.ok(!calls.some(isCenterLine), `center line on ${screen}`);
       assert.ok(!calls.some(isBall), `ball on ${screen}`);
+      assert.ok(!calls.some(isLatencyLabel), `latency on ${screen}`);
     }
   });
 
-  it('hides the center line and the ball while a Jev error freezes the game', () => {
+  it('hides the center line, the ball and the latency while a Jev error freezes the game', () => {
     const calls = renderCourt('playing', 'Jev is unreachable');
     assert.ok(!calls.some(isCenterLine));
     assert.ok(!calls.some(isBall));
+    assert.ok(!calls.some(isLatencyLabel));
+  });
+
+  it('hides the latency indicator on the menu', () => {
+    assert.ok(!renderCourt('menu').some(isLatencyLabel));
   });
 });
