@@ -45,6 +45,13 @@ const FIELD = {
   width: COURT.width * FIELD_SCALE,
   height: COURT.height * FIELD_SCALE,
 };
+// Latency label and dot, right-aligned in the bottom-right corner of the court.
+const LATENCY_LABEL_Y = 388;
+// The portrait hint sits near the bottom of the court, clear of the title and the banners. Its 16 px line (about
+// 400 px wide, centered) fits between the key-entry help text (y 350) and the latency label, ending above the
+// label's line and left of the latency sparkline (x >= 610).
+const PORTRAIT_HINT_Y = LATENCY_LABEL_Y - 16;
+const PORTRAIT_HINT_STYLE = { size: 16, color: FOREGROUND };
 
 export const KEY_FIELD = { x: 200, y: 170, width: 400, height: 44 };
 export const START_BUTTON = { x: 330, y: 240, width: 140, height: 40 };
@@ -111,7 +118,7 @@ function drawFrame(ctx, view) {
 
   // Texts sit directly on the court, without a backing box, so the background gradient stays unbroken.
   if (view.portrait) {
-    drawText(ctx, 'Rotate your device for a better experience', CENTER_X, 80, { size: 24, color: FOREGROUND });
+    drawText(ctx, 'Rotate your device for a better experience', CENTER_X, PORTRAIT_HINT_Y, PORTRAIT_HINT_STYLE);
   }
 }
 
@@ -290,7 +297,7 @@ function drawCourtBorder(ctx) {
 
 function drawLatency(ctx, stats) {
   const right = COURT.width - 10;
-  const y = 388;
+  const y = LATENCY_LABEL_Y;
   const last = stats.last;
   const label = last === null
     ? 'Jev · — ms'

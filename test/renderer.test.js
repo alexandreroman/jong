@@ -321,4 +321,22 @@ describe('render court', () => {
     assert.ok(ctx.calls.some(isHint));
     assert.ok(!ctx.calls.some(isOverlayBox));
   });
+
+  it('draws the portrait hint near the bottom of the court, above the latency label', () => {
+    for (const screen of ['key-entry', 'menu', 'playing']) {
+      const ctx = recordingContext();
+      render(ctx, {
+        screen, keyLength: 0, keyFocused: false, keyCaretSince: 0, time: 0, message: null,
+        apiError: null, resumeIn: 0, match, fx: createFx(), stats, touchMode: true, portrait: true,
+      });
+      const hint = ctx.calls.find((call) => call.name === 'fillText' && call.args[0].startsWith('Rotate your device'));
+      const hintY = hint.args[2];
+      assert.ok(hintY > COURT.height * 0.75, `hint near the bottom on ${screen}`);
+      assert.ok(hintY < COURT.height, `hint inside the court on ${screen}`);
+      const latencyLabel = ctx.calls.find((call) => call.name === 'fillText' && call.args[0].startsWith('Jev ·'));
+      if (latencyLabel) {
+        assert.ok(hintY < latencyLabel.args[2], 'hint above the latency label');
+      }
+    }
+  });
 });
