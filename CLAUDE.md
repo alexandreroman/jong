@@ -23,6 +23,7 @@ make dev     # server on http://localhost:3000, restarts on change
 make test    # node --test
 make check   # tests + node --check syntax checks
 make app-up  # server without watching (blocking)
+make image   # build the container image
 ```
 
 ## Modules
@@ -36,6 +37,11 @@ make app-up  # server without watching (blocking)
   `main.js` (state machine and loop)
 - `server.mjs` — static server and TypeSafe proxy
 - `test/` — `node --test` suites
+- `Dockerfile` — `node:24-alpine` runtime image (tini,
+  non-root `app` user, health check on `/`)
+- `.github/workflows/docker.yml` — CI: `make check`, then
+  multi-arch image built on native runners and published
+  to `ghcr.io/alexandreroman/jong` from `main`
 - `.casper.json` — Casper workspace config: `setup` runs
   `make worktree-init` (per-worktree `PORT` in `.env`), `run`
   runs `make app-up` (lists the URLs in the info panel)

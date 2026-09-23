@@ -55,10 +55,12 @@ reload the page to pick up client-side changes.
 Run `make` to list every available target:
 
 ```bash
-make dev     # run the server, restarting on change
-make app-up  # run the server without watching
-make test    # run the test suite (node --test)
-make check   # run tests and syntax checks
+make dev        # run the server, restarting on change
+make app-up     # run the server without watching
+make test       # run the test suite (node --test)
+make check      # run tests and syntax checks
+make image      # build the container image
+make image-run  # build and run the container image
 ```
 
 ## Configuration
@@ -67,6 +69,34 @@ make check   # run tests and syntax checks
 | ------------------ | ----------------------------- | --------------------------------------- |
 | `PORT`             | Port the local server listens | `3000`                                  |
 | `TYPESAFE_API_URL` | Upstream URL for Jev requests | `https://api.typesafe.ai/v1/systemone`  |
+
+## Docker Image
+
+Every push to `main` publishes a multi-arch image
+(`linux/amd64` and `linux/arm64`) to the GitHub Container
+Registry. Run it and open `http://localhost:3000/`:
+
+```bash
+docker run --rm -p 3000:3000 ghcr.io/alexandreroman/jong
+```
+
+The image is tagged `latest` and `sha-<commit SHA>`. It
+runs as a non-root user, reads the same `PORT` and
+`TYPESAFE_API_URL` variables as the local server, and
+declares a health check on `/`.
+
+## Continuous Integration
+
+The `.github/workflows/docker.yml` workflow runs on every
+push and pull request to `main`:
+
+1. **Test** — runs `make check` on Node.js 24
+2. **Build** — builds the image natively on `amd64` and
+   `arm64` runners, with layers cached in GitHub Actions
+3. **Publish** — on `main` only, pushes both platform
+   images and merges them into one multi-arch manifest
+
+Pull requests build the image without publishing it.
 
 ## How Jev Plays
 
@@ -139,6 +169,8 @@ graph LR
 | `src/fx.js`   | Visual-only effects: ball trail, paddle recoil |
 | `server.mjs`  | Static file server and TypeSafe proxy          |
 | `test/`       | Tests run with the built-in `node --test`      |
+| `Dockerfile`  | Container image for the server and game files  |
+| `.github/`    | CI workflow: tests, multi-arch image publish   |
 
 ## License
 
