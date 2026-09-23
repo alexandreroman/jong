@@ -33,7 +33,6 @@ describe('createMatch', () => {
   it('starts before round 1 with a centered, still ball', () => {
     assert.deepEqual(createMatch(), {
       round: 0,
-      results: [],
       score: { human: 0, jev: 0 },
       ball: { x: 400, y: 200, vx: 0, vy: 0 },
       paddles: { human: 200, jev: 200 },
@@ -146,7 +145,6 @@ describe('step: scoring', () => {
     }
     assert.equal(scorer, 'jev');
     assert.deepEqual(match.score, { human: 0, jev: 1 });
-    assert.deepEqual(match.results, ['jev']);
     assert.deepEqual(match.ball, { x: 400, y: 200, vx: 0, vy: 0 });
   });
 
@@ -163,7 +161,7 @@ describe('step: scoring', () => {
     scorePoint(match, 'human');
     assert.equal(isMatchOver(match), true);
     assert.equal(matchWinner(match), 'human');
-    assert.deepEqual(match.results, ['human', 'human']);
+    assert.deepEqual(match.score, { human: 2, jev: 0 });
   });
 
   it('plays a deciding third round at 1-1', () => {
@@ -174,7 +172,7 @@ describe('step: scoring', () => {
     scorePoint(match, 'jev');
     assert.equal(isMatchOver(match), true);
     assert.equal(matchWinner(match), 'jev');
-    assert.deepEqual(match.results, ['jev', 'human', 'jev']);
+    assert.deepEqual(match.score, { human: 1, jev: 2 });
   });
 });
 

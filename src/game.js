@@ -32,7 +32,6 @@ function centeredPaddles() {
 export function createMatch() {
   return {
     round: 0,
-    results: [],
     score: { human: 0, jev: 0 },
     ball: centeredBall(),
     paddles: centeredPaddles(),
@@ -196,6 +195,5 @@ function scorerOf(ball) {
 
 function recordPoint(match, scorer) {
   match.score[scorer] += 1;
-  match.results.push(scorer);
   match.ball = centeredBall();
 }
