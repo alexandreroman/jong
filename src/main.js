@@ -27,7 +27,12 @@ const canvas = document.getElementById('game');
 const keyField = document.getElementById('api-key');
 const context = setupCanvas(canvas);
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
-const input = createInput({ canvas, keyField, initialInputType: coarsePointer ? 'touch' : 'keyboard' });
+const input = createInput({
+  canvas,
+  keyField,
+  initialInputType: coarsePointer ? 'touch' : 'keyboard',
+  isControlAt,
+});
 const stats = new LatencyStats();
 
 const app = {
@@ -125,6 +130,27 @@ function quitToMenu() {
   app.apiError = null;
   app.resumeIn = 0;
   app.screen = 'menu';
+}
+
+// The controls that react to a tap on the current screen, matching the hit tests in handleAction.
+function activeControls() {
+  switch (app.screen) {
+    case 'key-entry':
+      return [KEY_FIELD, START_BUTTON];
+    case 'menu':
+      return [CHANGE_KEY_BUTTON];
+    case 'playing':
+      return app.apiError !== null ? [QUIT_BUTTON] : [PAUSE_BUTTON];
+    case 'paused':
+    case 'match-over':
+      return [QUIT_BUTTON];
+    default:
+      return [];
+  }
+}
+
+function isControlAt(point) {
+  return activeControls().some((rect) => hitTest(rect, point));
 }
 
 function handleAction(action) {

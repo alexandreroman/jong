@@ -17,7 +17,8 @@ HTML canvas. The only server is a tiny local proxy.
 - **Hit feedback** — the ball leaves a short fading trail,
   and a paddle recoils when it strikes the ball
 - **Mobile-friendly** — the 800x400 court scales down to
-  fit smaller screens, with touch controls
+  fit smaller screens, with touch controls: drag a finger
+  anywhere on the screen to move your paddle
 - **Your key stays in memory** — the TypeSafe API key you
   enter is never stored
 
