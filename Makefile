@@ -69,6 +69,19 @@ test: ## Run the test suite
 check: test ## Run tests and syntax checks
 	@for f in server.mjs src/*.js; do node --check "$$f" || exit 1; done
 
+##@ Container
+
+# Local image name; CI publishes the same image as ghcr.io/alexandreroman/jong.
+IMAGE ?= jong
+
+.PHONY: image
+image: ## Build the container image (override the name with IMAGE=...)
+	docker build -t $(IMAGE) .
+
+.PHONY: image-run
+image-run: image ## Build and run the container image on PORT (default 3000)
+	docker run --rm -p $(or $(PORT),3000):3000 $(IMAGE)
+
 ##@ Helpers
 
 .PHONY: help
