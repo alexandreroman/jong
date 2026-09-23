@@ -73,7 +73,7 @@ export function render(ctx, view) {
 function drawFrame(ctx, view) {
   ctx.fillStyle = BACKGROUND;
   ctx.fillRect(0, 0, COURT.width, COURT.height);
-  // Drawn before any content so dim overlays darken it the same way they darken the center line.
+  // Drawn before any content so dim overlays darken it the same way they darken the rest of the court.
   drawCourtBorder(ctx);
 
   switch (view.screen) {
@@ -181,7 +181,26 @@ function drawMenu(ctx, { touchMode, stats }) {
   drawLatency(ctx, stats);
 }
 
-function drawCourt(ctx, { match, stats, touchMode }) {
+function drawCourt(ctx, { screen, apiError, match, stats, touchMode }) {
+  // The center line and the ball only show while the game runs (not frozen by a Jev error), so banners and overlays
+  // sit on a quieter court.
+  const active = screen === 'playing' && !apiError;
+  if (active) {
+    drawCenterLine(ctx);
+  }
+
+  // Drawn before the field so the Jev paddle passes over the indicator instead of disappearing beneath it.
+  drawLatency(ctx, stats);
+  drawField(ctx, match, { showBall: active });
+
+  drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 24, { size: 20 });
+  drawText(ctx, `Round ${match.round}/${ROUNDS}`, CENTER_X, 46, { size: 14, color: DIM });
+  if (touchMode) {
+    drawButton(ctx, PAUSE_BUTTON, 'II');
+  }
+}
+
+function drawCenterLine(ctx) {
   ctx.strokeStyle = DIM;
   ctx.lineWidth = 2;
   ctx.setLineDash([10, 10]);
@@ -191,20 +210,10 @@ function drawCourt(ctx, { match, stats, touchMode }) {
   ctx.lineTo(CENTER_X, FIELD.y + FIELD.height);
   ctx.stroke();
   ctx.setLineDash([]);
-
-  // Drawn before the field so the Jev paddle passes over the indicator instead of disappearing beneath it.
-  drawLatency(ctx, stats);
-  drawField(ctx, match);
-
-  drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 24, { size: 20 });
-  drawText(ctx, `Round ${match.round}/${ROUNDS}`, CENTER_X, 46, { size: 14, color: DIM });
-  if (touchMode) {
-    drawButton(ctx, PAUSE_BUTTON, 'II');
-  }
 }
 
 // Paddles and ball live in court coordinates; the transform maps them into the padded play field.
-function drawField(ctx, match) {
+function drawField(ctx, match, { showBall }) {
   ctx.save();
   // Clipping makes a scoring ball vanish at the field's side edge instead of drifting into the padding.
   ctx.beginPath();
@@ -215,7 +224,9 @@ function drawField(ctx, match) {
   ctx.fillStyle = FOREGROUND;
   ctx.fillRect(LEFT_PADDLE_X, match.paddles.human - PADDLE.height / 2, PADDLE.width, PADDLE.height);
   ctx.fillRect(RIGHT_PADDLE_X, match.paddles.jev - PADDLE.height / 2, PADDLE.width, PADDLE.height);
-  ctx.fillRect(match.ball.x - BALL_SIZE / 2, match.ball.y - BALL_SIZE / 2, BALL_SIZE, BALL_SIZE);
+  if (showBall) {
+    ctx.fillRect(match.ball.x - BALL_SIZE / 2, match.ball.y - BALL_SIZE / 2, BALL_SIZE, BALL_SIZE);
+  }
   ctx.restore();
 }
 

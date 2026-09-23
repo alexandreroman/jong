@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { BALL_SIZE } from '../src/game.js';
 import {
   KEY_FIELD, QUIT_BUTTON, START_BUTTON, canvasToCourtY, caretVisible, hitTest, render,
 } from '../src/renderer.js';
@@ -133,5 +134,48 @@ describe('render key entry', () => {
     // Ink spans 12 px above and 2 px below the baseline, so the baseline sits 5 px below the center.
     assert.equal(baselineOf('•••'), fieldCenterY + 5);
     assert.equal(baselineOf('Start (Enter)'), START_BUTTON.y + START_BUTTON.height / 2 + 5);
+  });
+});
+
+describe('render court', () => {
+  const match = {
+    paddles: { human: 200, jev: 200 },
+    ball: { x: 400, y: 200 },
+    score: { human: 0, jev: 0 },
+    round: 1,
+    results: ['human'],
+  };
+  const stats = { last: null, average: 0, samples: [] };
+
+  function renderCourt(screen, apiError = null) {
+    const ctx = recordingContext();
+    const view = { screen, apiError, resumeIn: 0, match, stats, timer: 1, lastScorer: 'human' };
+    render(ctx, { ...view, touchMode: false, portrait: false });
+    return ctx.calls;
+  }
+
+  const isCenterLine = (call) => call.name === 'setLineDash' && call.args[0].length > 0;
+  // The ball is the only BALL_SIZE square drawn in court coordinates, centered on match.ball.
+  const isBall = (call) => call.name === 'fillRect' && call.args[0] === match.ball.x - BALL_SIZE / 2
+    && call.args[1] === match.ball.y - BALL_SIZE / 2 && call.args[2] === BALL_SIZE;
+
+  it('draws the dashed center line and the ball while the game runs', () => {
+    const calls = renderCourt('playing');
+    assert.ok(calls.some(isCenterLine));
+    assert.ok(calls.some(isBall));
+  });
+
+  it('hides the center line and the ball on every other court screen', () => {
+    for (const screen of ['round-intro', 'point-scored', 'paused', 'match-over']) {
+      const calls = renderCourt(screen);
+      assert.ok(!calls.some(isCenterLine), `center line on ${screen}`);
+      assert.ok(!calls.some(isBall), `ball on ${screen}`);
+    }
+  });
+
+  it('hides the center line and the ball while a Jev error freezes the game', () => {
+    const calls = renderCourt('playing', 'Jev is unreachable');
+    assert.ok(!calls.some(isCenterLine));
+    assert.ok(!calls.some(isBall));
   });
 });
