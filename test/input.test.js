@@ -118,13 +118,13 @@ describe('createInput', () => {
   });
 
   it('does not grab the paddle for a finger on a control but still emits the tap', () => {
-    const controlInput = createInput({ canvas, keyField, target: window, isControlAt: (point) => point.x > 700 });
+    const controlInput = createInput({ canvas, keyField, target: window, isControlAt: (point) => point.y > 260 });
     const controlActions = [];
     controlInput.onAction((action) => controlActions.push(action));
 
-    pointer('pointerdown', { pointerType: 'touch', pointerId: 5, clientX: 380, clientY: 10 });
+    pointer('pointerdown', { pointerType: 'touch', pointerId: 5, clientX: 200, clientY: 145 });
     assert.equal(controlInput.state.touchY, null);
-    assert.deepEqual(controlActions, [{ type: 'tap', x: 760, y: 20 }]);
+    assert.deepEqual(controlActions, [{ type: 'tap', x: 400, y: 290 }]);
 
     pointer('pointermove', { pointerId: 5, clientX: 50, clientY: 60 });
     assert.equal(controlInput.state.touchY, null);

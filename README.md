@@ -18,7 +18,9 @@ HTML canvas. The only server is a tiny local proxy.
   and a paddle recoils when it strikes the ball
 - **Mobile-friendly** — the 800x400 court scales down to
   fit smaller screens, with touch controls: drag a finger
-  anywhere on the screen to move your paddle
+  anywhere on the screen to move your paddle; the game
+  pauses automatically when you leave the page (switch
+  app, lock the screen)
 - **Your key stays in memory** — the TypeSafe API key you
   enter is never stored
 

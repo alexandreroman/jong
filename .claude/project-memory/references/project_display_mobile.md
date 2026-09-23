@@ -23,4 +23,6 @@ prints its LAN URL so a phone on the same network can play.
 **Why:** explicit user requirements.
 
 **How to apply:** physics never depends on screen size; every input action
-has both a keyboard and a touch path.
+has both a keyboard and a touch path, except pause: on touch devices the
+game pauses automatically when the page becomes hidden (app switch, screen
+lock), with no on-screen pause button.

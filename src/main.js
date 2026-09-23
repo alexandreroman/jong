@@ -8,7 +8,6 @@ import { createInput } from './input.js';
 import {
   CHANGE_KEY_BUTTON,
   KEY_FIELD,
-  PAUSE_BUTTON,
   QUIT_BUTTON,
   START_BUTTON,
   canvasToCourtY,
@@ -140,7 +139,7 @@ function activeControls() {
     case 'menu':
       return [CHANGE_KEY_BUTTON];
     case 'playing':
-      return app.apiError !== null ? [QUIT_BUTTON] : [PAUSE_BUTTON];
+      return app.apiError !== null ? [QUIT_BUTTON] : [];
     case 'paused':
     case 'match-over':
       return [QUIT_BUTTON];
@@ -181,7 +180,7 @@ function handleAction(action) {
         if (action.type === 'quit' || tapped(QUIT_BUTTON)) {
           quitToMenu();
         }
-      } else if (action.type === 'pause' || tapped(PAUSE_BUTTON)) {
+      } else if (action.type === 'pause') {
         pause();
       }
       break;

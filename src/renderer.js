@@ -56,7 +56,6 @@ const PORTRAIT_HINT_STYLE = { size: 16, color: FOREGROUND };
 export const KEY_FIELD = { x: 200, y: 170, width: 400, height: 44 };
 export const START_BUTTON = { x: 330, y: 240, width: 140, height: 40 };
 export const CHANGE_KEY_BUTTON = { x: 290, y: 290, width: 220, height: 36 };
-export const PAUSE_BUTTON = { x: 750, y: 10, width: 40, height: 30 };
 export const QUIT_BUTTON = { x: 330, y: 270, width: 140, height: 40 };
 
 export function hitTest(rect, point) {
@@ -207,7 +206,7 @@ function drawMenu(ctx, { touchMode }) {
   drawButton(ctx, CHANGE_KEY_BUTTON, touchMode ? 'Change API key' : 'Change API key (K)');
 }
 
-function drawCourt(ctx, { screen, apiError, match, fx, stats, touchMode }) {
+function drawCourt(ctx, { screen, apiError, match, fx, stats }) {
   // The center line, the ball and the latency indicator only show while the game runs (not frozen by a Jev error),
   // so banners and overlays sit on a quieter court.
   const active = screen === 'playing' && !apiError;
@@ -218,13 +217,9 @@ function drawCourt(ctx, { screen, apiError, match, fx, stats, touchMode }) {
   }
   drawField(ctx, match, fx, { showBall: active });
 
-  // The match-over screen already shows the final score and every round's result, and a finished match can't be paused.
-  const showHud = screen !== 'match-over';
-  if (showHud) {
+  // The match-over screen already shows the final score and every round's result.
+  if (screen !== 'match-over') {
     drawHud(ctx, match);
-  }
-  if (showHud && touchMode) {
-    drawButton(ctx, PAUSE_BUTTON, 'II');
   }
 }
 

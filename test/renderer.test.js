@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { createFx, updateFx } from '../src/fx.js';
 import { BALL_SIZE, COURT, LEFT_PADDLE_X, RIGHT_PADDLE_X } from '../src/game.js';
 import {
-  KEY_FIELD, PAUSE_BUTTON, QUIT_BUTTON, START_BUTTON, canvasToCourtY, caretVisible, hitTest, render,
+  KEY_FIELD, QUIT_BUTTON, START_BUTTON, canvasToCourtY, caretVisible, hitTest, render,
 } from '../src/renderer.js';
 
 describe('hitTest', () => {
@@ -245,11 +245,11 @@ describe('render court', () => {
     assert.deepEqual([bestOf.args[1], bestOf.args[2], bestOf.textAlign], [400 + 20, 46, 'left']);
   });
 
-  it('draws the touch pause button during play but not on the match-over screen', () => {
-    const isPauseButton = (call) => call.name === 'roundRect' && call.args[0] === PAUSE_BUTTON.x
-      && call.args[1] === PAUSE_BUTTON.y;
-    assert.ok(renderCourt('playing', null, true).some(isPauseButton));
-    assert.ok(!renderCourt('match-over', null, true).some(isPauseButton));
+  it('draws no touch button on the court during play', () => {
+    const roundRectArgs = (touchMode) => renderCourt('playing', null, touchMode)
+      .filter((call) => call.name === 'roundRect')
+      .map((call) => call.args);
+    assert.deepEqual(roundRectArgs(true), roundRectArgs(false));
   });
 
   // A trail square is centered on an old ball position and smaller than the ball.
