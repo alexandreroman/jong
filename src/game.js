@@ -1,9 +1,11 @@
 // Pure match logic for Jong: physics, scoring and rounds. No DOM, no clock, no global randomness.
+// A match is best of 3 one-point rounds: the first player to win 2 rounds wins, so a 3rd round is only played at 1-1.
 
 export const COURT = { width: 800, height: 400 };
 export const PADDLE = { width: 10, height: 80, margin: 20 };
 export const BALL_SIZE = 10;
 export const ROUNDS = 3;
+export const ROUNDS_TO_WIN = 2;
 export const SERVE_SPEED = 300;
 export const MAX_SERVE_ANGLE = Math.PI / 6;
 export const SPEED_UP = 1.05;
@@ -93,8 +95,9 @@ export function predictArrivalAtJev(ball) {
   return { seconds, wallBounces };
 }
 
+/** A match ends as soon as either player has won ROUNDS_TO_WIN rounds. */
 export function isMatchOver(match) {
-  return match.results.length >= ROUNDS;
+  return match.score.human >= ROUNDS_TO_WIN || match.score.jev >= ROUNDS_TO_WIN;
 }
 
 export function matchWinner(match) {

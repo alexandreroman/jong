@@ -2,9 +2,9 @@
 
 Pong in the browser, played against an AI opponent driven
 by [TypeSafe AI](https://docs.typesafe.ai/models)'s Jev
-model. A match lasts 3 rounds, and everything runs in the
-browser on a single HTML canvas. The only server is a tiny
-local proxy.
+model. A match is best of 3 rounds: the first player to win
+2 rounds wins. Everything runs in the browser on a single
+HTML canvas. The only server is a tiny local proxy.
 
 ## Features
 

@@ -195,7 +195,7 @@ function drawCourt(ctx, { screen, apiError, match, stats, touchMode }) {
   const showHud = screen !== 'match-over';
   if (showHud) {
     drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 24, { size: 20 });
-    drawText(ctx, `Round ${match.round}/${ROUNDS}`, CENTER_X, 46, { size: 14, color: DIM });
+    drawText(ctx, `Round ${match.round} · Best of ${ROUNDS}`, CENTER_X, 46, { size: 14, color: DIM });
   }
   if (showHud && touchMode) {
     drawButton(ctx, PAUSE_BUTTON, 'II');

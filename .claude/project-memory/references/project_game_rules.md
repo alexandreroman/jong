@@ -1,19 +1,20 @@
 ---
 name: "Game rules"
-description: "Match format: 3 rounds, one point per round, all rounds played, total points decide the winner"
+description: "Match format: best of 3 rounds of one point each; first to win 2 rounds wins"
 type: project
 ---
 
 # Game rules
 
-A match has exactly 3 rounds. A round lasts until one player (human or
-Jev) scores a point. All 3 rounds are always played, even at 2-0, and the
-winner is the player with the most total points (3-0, 2-1, 1-2 or 0-3; a
-draw is impossible). Serves alternate: round 1 toward the human, round 2
-toward Jev, round 3 toward the human. The ball speeds up slightly on each
-paddle hit, up to a speed cap.
+A match is best of 3 rounds. A round lasts until one player (human or
+Jev) scores a point. The first player to win 2 rounds wins the match, and
+the match ends at once: a 3rd round is played only at 1-1 (final scores
+2-0, 2-1, 1-2 or 0-2). Serves alternate: round 1 toward the human, round
+2 toward Jev, round 3 toward the human. The ball speeds up slightly on
+each paddle hit, up to a speed cap. The in-game HUD shows
+"Round N · Best of 3".
 
-**Why:** rules chosen by the user during the design.
+**Why:** rules chosen by the user.
 
 **How to apply:** match state logic in the game module must follow these
-rules exactly; end screens show the per-round breakdown.
+rules exactly; end screens show the per-round breakdown of played rounds.

@@ -147,23 +147,25 @@ describe('step: scoring', () => {
     assert.deepEqual(match.score, { human: 1, jev: 0 });
   });
 
-  it('plays all 3 rounds, even at 2-0', () => {
+  it('ends the match at 2-0 without a third round', () => {
     const match = createMatch();
     scorePoint(match, 'human');
+    assert.equal(isMatchOver(match), false);
+    scorePoint(match, 'human');
+    assert.equal(isMatchOver(match), true);
+    assert.equal(matchWinner(match), 'human');
+    assert.deepEqual(match.results, ['human', 'human']);
+  });
+
+  it('plays a deciding third round at 1-1', () => {
+    const match = createMatch();
+    scorePoint(match, 'jev');
     scorePoint(match, 'human');
     assert.equal(isMatchOver(match), false);
     scorePoint(match, 'jev');
     assert.equal(isMatchOver(match), true);
-    assert.equal(matchWinner(match), 'human');
-    assert.deepEqual(match.results, ['human', 'human', 'jev']);
-  });
-
-  it('names Jev the winner at 1-2', () => {
-    const match = createMatch();
-    scorePoint(match, 'jev');
-    scorePoint(match, 'human');
-    scorePoint(match, 'jev');
     assert.equal(matchWinner(match), 'jev');
+    assert.deepEqual(match.results, ['jev', 'human', 'jev']);
   });
 });
 

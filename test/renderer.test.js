@@ -189,7 +189,7 @@ describe('render court', () => {
   });
 
   it('draws the score HUD during play but not on the match-over screen', () => {
-    const isRoundHud = (call) => call.name === 'fillText' && call.args[0] === 'Round 1/3';
+    const isRoundHud = (call) => call.name === 'fillText' && call.args[0] === 'Round 1 · Best of 3';
     // The match-over screen draws the score line itself, lower down, so only the HUD position (y = 24) counts.
     const isScoreHud = (call) => call.name === 'fillText' && call.args[0] === 'You 0 — 0 Jev' && call.args[2] === 24;
     const playing = renderCourt('playing');
