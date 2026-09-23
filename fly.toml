@@ -1,5 +1,5 @@
 app = 'jong'
-primary_region = 'ams'
+primary_region = 'lax'
 
 [build]
   image = 'ghcr.io/alexandreroman/jong:latest'
