@@ -63,7 +63,9 @@ function recordingContext() {
   const ctx = { calls };
   for (const name of ['clearRect', 'fillRect', 'beginPath', 'roundRect', 'rect', 'clip', 'stroke', 'fill',
     'fillText', 'save', 'restore', 'moveTo', 'lineTo', 'arc', 'setLineDash', 'translate', 'scale', 'strokeRect']) {
-    ctx[name] = (...args) => calls.push({ name, args, fillStyle: ctx.fillStyle, strokeStyle: ctx.strokeStyle });
+    ctx[name] = (...args) => calls.push({
+      name, args, fillStyle: ctx.fillStyle, strokeStyle: ctx.strokeStyle, textAlign: ctx.textAlign,
+    });
   }
   ctx.measureText = (text) => ({ width: text.length * 10, actualBoundingBoxAscent: 12, actualBoundingBoxDescent: 2 });
   return ctx;
@@ -188,16 +190,28 @@ describe('render court', () => {
     assert.ok(!calls.some(isLatencyLabel));
   });
 
+  const hudText = (calls, text) => calls.find((call) => call.name === 'fillText' && call.args[0] === text);
+  const HUD_TEXTS = ['You 0', '—', '0 Jev', 'Round 1', 'Best of 3'];
+
   it('draws the score HUD during play but not on the match-over screen', () => {
-    const isRoundHud = (call) => call.name === 'fillText' && call.args[0] === 'Round 1/3';
-    // The match-over screen draws the score line itself, lower down, so only the HUD position (y = 24) counts.
-    const isScoreHud = (call) => call.name === 'fillText' && call.args[0] === 'You 0 — 0 Jev' && call.args[2] === 24;
     const playing = renderCourt('playing');
-    assert.ok(playing.some(isScoreHud));
-    assert.ok(playing.some(isRoundHud));
+    for (const text of HUD_TEXTS) {
+      assert.ok(hudText(playing, text), `${text} during play`);
+    }
     const matchOver = renderCourt('match-over');
-    assert.ok(!matchOver.some(isScoreHud));
-    assert.ok(!matchOver.some(isRoundHud));
+    for (const text of HUD_TEXTS) {
+      assert.ok(!hudText(matchOver, text), `${text} on match-over`);
+    }
+  });
+
+  it('lays the HUD out in two columns mirrored around the center line', () => {
+    const calls = renderCourt('playing');
+    const [you, dash, jev, round, bestOf] = HUD_TEXTS.map((text) => hudText(calls, text));
+    assert.deepEqual([you.args[1], you.args[2], you.textAlign], [400 - 20, 24, 'right']);
+    assert.deepEqual([dash.args[1], dash.args[2], dash.textAlign], [400, 24, 'center']);
+    assert.deepEqual([jev.args[1], jev.args[2], jev.textAlign], [400 + 20, 24, 'left']);
+    assert.deepEqual([round.args[1], round.args[2], round.textAlign], [400 - 20, 46, 'right']);
+    assert.deepEqual([bestOf.args[1], bestOf.args[2], bestOf.textAlign], [400 + 20, 46, 'left']);
   });
 
   it('draws the touch pause button during play but not on the match-over screen', () => {

@@ -22,7 +22,7 @@
 > rewrite it.
 
 - [Project constraints](references/project_constraints.md) — browser-only, Canvas, English UI, local proxy, Apache-2.0
-- [Game rules](references/project_game_rules.md) — 3 rounds of one point each, all played, total points win
+- [Game rules](references/project_game_rules.md) — best of 3 rounds of one point each, first to 2 rounds wins
 - [AI paddle control and latency HUD](references/project_ai_control.md) — Jev picks 10 zones + aim, recenters when ball moves away, live latency
 - [API key handling](references/project_api_key.md) — key kept in memory only, never persisted
 - [Display size and mobile support](references/project_display_mobile.md) — 800x400 max, responsive, touch controls

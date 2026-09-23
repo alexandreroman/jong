@@ -12,6 +12,12 @@ const FONT = 'monospace';
 const LEVEL_COLORS = { good: '#3c3', fair: '#f90', poor: '#e33' };
 const CENTER_X = COURT.width / 2;
 const HUD_BOTTOM = 60;
+// Horizontal space between the center line and each HUD column, wide enough to fit the score dash between them.
+const HUD_GAP = 20;
+const HUD_TOP_Y = 24;
+const HUD_BOTTOM_Y = 46;
+const HUD_TOP_STYLE = { size: 20, color: FOREGROUND };
+const HUD_BOTTOM_STYLE = { size: 14, color: DIM };
 const BORDER_WIDTH = 2;
 const BORDER_RADIUS = 12;
 // Shared by every button and the key field so all controls have the same shape.
@@ -194,12 +200,23 @@ function drawCourt(ctx, { screen, apiError, match, stats, touchMode }) {
   // The match-over screen already shows the final score and every round's result, and a finished match can't be paused.
   const showHud = screen !== 'match-over';
   if (showHud) {
-    drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 24, { size: 20 });
-    drawText(ctx, `Round ${match.round}/${ROUNDS}`, CENTER_X, 46, { size: 14, color: DIM });
+    drawHud(ctx, match);
   }
   if (showHud && touchMode) {
     drawButton(ctx, PAUSE_BUTTON, 'II');
   }
+}
+
+// Two columns mirrored around the center line: the human's side on the left, Jev's on the right. Both columns hug the
+// center, so the top line reads 'You 1 — 0 Jev' with the dash on the center line.
+function drawHud(ctx, match) {
+  const leftX = CENTER_X - HUD_GAP;
+  const rightX = CENTER_X + HUD_GAP;
+  drawText(ctx, `You ${match.score.human}`, leftX, HUD_TOP_Y, { ...HUD_TOP_STYLE, align: 'right' });
+  drawText(ctx, '—', CENTER_X, HUD_TOP_Y, HUD_TOP_STYLE);
+  drawText(ctx, `${match.score.jev} Jev`, rightX, HUD_TOP_Y, { ...HUD_TOP_STYLE, align: 'left' });
+  drawText(ctx, `Round ${match.round}`, leftX, HUD_BOTTOM_Y, { ...HUD_BOTTOM_STYLE, align: 'right' });
+  drawText(ctx, `Best of ${ROUNDS}`, rightX, HUD_BOTTOM_Y, { ...HUD_BOTTOM_STYLE, align: 'left' });
 }
 
 function drawCenterLine(ctx) {
@@ -207,7 +224,7 @@ function drawCenterLine(ctx) {
   ctx.lineWidth = 2;
   ctx.setLineDash([10, 10]);
   ctx.beginPath();
-  // Starts below the score so the line never crosses the HUD text, and stops at the bottom of the play field.
+  // Starts below the HUD so the line never runs between its two text columns, and stops at the bottom of the field.
   ctx.moveTo(CENTER_X, HUD_BOTTOM);
   ctx.lineTo(CENTER_X, FIELD.y + FIELD.height);
   ctx.stroke();
@@ -319,7 +336,7 @@ function drawMatchOver(ctx, { match, touchMode }) {
   const title = matchWinner(match) === 'human' ? 'You win' : 'Jev wins';
   const rounds = match.results
     .map((winner, i) => `Round ${i + 1}: ${winner === 'human' ? 'You' : 'Jev'}`)
-    .join('  ·  ');
+    .join('    ');
   drawText(ctx, title, CENTER_X, 120, { size: 48, bold: true });
   drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 170, { size: 22 });
   drawText(ctx, rounds, CENTER_X, 205, { size: 14, color: DIM });
