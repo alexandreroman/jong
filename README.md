@@ -1,6 +1,6 @@
 # Jong
 
-[![Docker image](https://github.com/alexandreroman/jong/actions/workflows/docker.yml/badge.svg)](https://github.com/alexandreroman/jong/actions/workflows/docker.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/alexandreroman/jong/docker.yml?branch=main&label=CI)](https://github.com/alexandreroman/jong/actions/workflows/docker.yml)
 [![License](https://img.shields.io/github/license/alexandreroman/jong)](LICENSE)
 
 Pong in the browser, played against an AI opponent driven
