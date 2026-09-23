@@ -6,9 +6,6 @@ model. A match lasts 3 rounds, and everything runs in the
 browser on a single HTML canvas. The only server is a tiny
 local proxy.
 
-> **Status:** early development. The server, proxy and
-> responsive canvas are in place; gameplay is in progress.
-
 ## Features
 
 - **Jev as your opponent** — the AI paddle is steered by
