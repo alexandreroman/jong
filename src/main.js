@@ -10,6 +10,7 @@ import {
   PAUSE_BUTTON,
   QUIT_BUTTON,
   START_BUTTON,
+  canvasToCourtY,
   hitTest,
   render,
 } from './renderer.js';
@@ -213,7 +214,7 @@ function updatePlaying(dt) {
   }
   const scorer = step(app.match, dt, {
     humanDirection: input.state.direction,
-    humanTargetY: input.state.touchY,
+    humanTargetY: touchTargetY(),
     jevTargetY: jev.targetY,
   });
   if (scorer !== null) {
@@ -222,6 +223,15 @@ function updatePlaying(dt) {
     app.timer = POINT_SCORED_S;
     app.screen = 'point-scored';
   }
+}
+
+// The finger is tracked in canvas coordinates, but the paddle is drawn inside the padded play field.
+function touchTargetY() {
+  const touchY = input.state.touchY;
+  if (touchY === null) {
+    return null;
+  }
+  return canvasToCourtY(touchY);
 }
 
 function buildView() {
