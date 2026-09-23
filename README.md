@@ -1,5 +1,8 @@
 # Jong
 
+[![Docker image](https://github.com/alexandreroman/jong/actions/workflows/docker.yml/badge.svg)](https://github.com/alexandreroman/jong/actions/workflows/docker.yml)
+[![License](https://img.shields.io/github/license/alexandreroman/jong)](LICENSE)
+
 Pong in the browser, played against an AI opponent driven
 by [TypeSafe AI](https://docs.typesafe.ai/models)'s Jev
 model. A match is best of 3 rounds: the first player to win
