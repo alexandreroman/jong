@@ -129,7 +129,10 @@ function handleAction(action) {
 
   switch (app.screen) {
     case 'key-entry':
-      if (tapped(KEY_FIELD)) {
+      if (action.type === 'key-edited') {
+        // Any edit answers the error message, so it would only be stale from here on.
+        app.message = null;
+      } else if (tapped(KEY_FIELD)) {
         input.focusKeyField();
       } else if (action.type === 'confirm' || tapped(START_BUTTON)) {
         submitKey();
@@ -234,13 +237,16 @@ function touchTargetY() {
   return canvasToCourtY(touchY);
 }
 
-function buildView() {
+function buildView(time) {
   const touchMode = input.state.lastInputType === 'touch';
   return {
     screen: app.screen,
     match: app.match,
     stats,
     keyLength: input.keyValue.length,
+    keyFocused: input.state.keyFocused,
+    keyCaretSince: input.state.keyCaretSince,
+    time,
     message: app.message,
     apiError: app.apiError,
     resumeIn: app.resumeIn,
@@ -257,7 +263,7 @@ function frame(time) {
   const dt = Math.min(Math.max(0, (time - lastTime) / 1000), MAX_UPDATE_DT);
   lastTime = time;
   update(dt);
-  render(context, buildView());
+  render(context, buildView(time));
   requestAnimationFrame(frame);
 }
 

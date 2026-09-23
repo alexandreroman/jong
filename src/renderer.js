@@ -14,6 +14,13 @@ const CENTER_X = COURT.width / 2;
 const HUD_BOTTOM = 60;
 const BORDER_WIDTH = 2;
 const BORDER_RADIUS = 12;
+// Shared by every button and the key field so all controls have the same shape.
+const CONTROL_RADIUS = 8;
+// Matches the usual system text caret blink: about 530 ms on, 530 ms off.
+const CARET_BLINK_MS = 530;
+const CARET_WIDTH = 2;
+const CARET_HEIGHT = 20;
+const CARET_GAP = 3;
 // Gap above and below the play field so paddles and ball, at their extreme positions, stay clear of the border.
 const COURT_PADDING = 10;
 // The court is scaled uniformly (not squashed) to fit between the paddings, then centered horizontally.
@@ -34,6 +41,12 @@ export const QUIT_BUTTON = { x: 330, y: 270, width: 140, height: 40 };
 export function hitTest(rect, point) {
   return point.x >= rect.x && point.x <= rect.x + rect.width
     && point.y >= rect.y && point.y <= rect.y + rect.height;
+}
+
+/** Tells whether the blinking caret is visible at `time`, given the time its blink cycle started (both in ms). */
+export function caretVisible(time, since) {
+  const phase = Math.floor(Math.max(0, time - since) / CARET_BLINK_MS);
+  return phase % 2 === 0;
 }
 
 /** Converts a canvas y coordinate to a court y coordinate by undoing the play field transform. */
@@ -60,7 +73,7 @@ export function render(ctx, view) {
 function drawFrame(ctx, view) {
   ctx.fillStyle = BACKGROUND;
   ctx.fillRect(0, 0, COURT.width, COURT.height);
-  // Drawn before any content so dim overlays darken it the same way they darken the center line.
+  // Drawn before any content so dim overlays darken it the same way they darken the rest of the court.
   drawCourtBorder(ctx);
 
   switch (view.screen) {
@@ -99,15 +112,32 @@ function drawText(ctx, text, x, y, { size = 16, color = FOREGROUND, align = 'cen
   ctx.fillText(text, x, y);
 }
 
+// Centers the glyphs' actual ink on centerY: the 'middle' baseline sits visibly off-center with monospace fonts.
+function drawCenteredText(ctx, text, x, centerY, { color = FOREGROUND } = {}) {
+  ctx.fillStyle = color;
+  ctx.font = `16px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  const metrics = ctx.measureText(text);
+  const baselineY = centerY + (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 2;
+  ctx.fillText(text, x, baselineY);
+}
+
 function drawTitle(ctx, y, size) {
   drawText(ctx, 'JONG', CENTER_X, y, { size, bold: true });
 }
 
-function drawButton(ctx, rect, label) {
-  ctx.strokeStyle = FOREGROUND;
+function strokeControl(ctx, rect, color = FOREGROUND) {
+  ctx.strokeStyle = color;
   ctx.lineWidth = 2;
-  ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-  drawText(ctx, label, rect.x + rect.width / 2, rect.y + rect.height / 2);
+  ctx.beginPath();
+  ctx.roundRect(rect.x, rect.y, rect.width, rect.height, CONTROL_RADIUS);
+  ctx.stroke();
+}
+
+function drawButton(ctx, rect, label) {
+  strokeControl(ctx, rect);
+  drawCenteredText(ctx, label, rect.x + rect.width / 2, rect.y + rect.height / 2);
 }
 
 function dimScreen(ctx) {
@@ -115,17 +145,11 @@ function dimScreen(ctx) {
   ctx.fillRect(0, 0, COURT.width, COURT.height);
 }
 
-function drawKeyEntry(ctx, { keyLength, message, touchMode }) {
+function drawKeyEntry(ctx, view) {
+  const { message, touchMode } = view;
   drawTitle(ctx, 80, 56);
-  drawText(ctx, 'Enter your TypeSafe API key', CENTER_X, 140, { size: 18 });
-
-  ctx.strokeStyle = FOREGROUND;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(KEY_FIELD.x, KEY_FIELD.y, KEY_FIELD.width, KEY_FIELD.height);
-  const placeholder = touchMode ? 'Tap here to type' : 'Type or paste your key';
-  const fieldText = keyLength > 0 ? '•'.repeat(Math.min(keyLength, 32)) : placeholder;
-  drawText(ctx, fieldText, CENTER_X, KEY_FIELD.y + KEY_FIELD.height / 2, { color: keyLength > 0 ? FOREGROUND : DIM });
-
+  drawText(ctx, 'Enter your TypeSafe API key:', CENTER_X, 140, { size: 18 });
+  drawKeyField(ctx, view);
   drawButton(ctx, START_BUTTON, touchMode ? 'Start' : 'Start (Enter)');
   if (message) {
     drawText(ctx, message, CENTER_X, 310, { color: ERROR });
@@ -133,14 +157,52 @@ function drawKeyEntry(ctx, { keyLength, message, touchMode }) {
   drawText(ctx, 'Your key stays in memory and is never stored.', CENTER_X, 350, { size: 12, color: DIM });
 }
 
-function drawMenu(ctx, { touchMode, stats }) {
+function drawKeyField(ctx, { keyLength, keyFocused, keyCaretSince, time, touchMode }) {
+  strokeControl(ctx, KEY_FIELD, keyFocused ? FOREGROUND : DIM);
+  const placeholder = touchMode ? 'Tap here to type' : 'Type or paste your key';
+  const hasKey = keyLength > 0;
+  const fieldText = hasKey ? '•'.repeat(Math.min(keyLength, 32)) : placeholder;
+  const centerY = KEY_FIELD.y + KEY_FIELD.height / 2;
+  drawCenteredText(ctx, fieldText, CENTER_X, centerY, { color: hasKey ? FOREGROUND : DIM });
+
+  if (!keyFocused || !caretVisible(time, keyCaretSince)) {
+    return;
+  }
+  // The text is centered, so its right edge is half its measured width past the center.
+  const caretX = CENTER_X + ctx.measureText(fieldText).width / 2 + CARET_GAP;
+  ctx.fillStyle = FOREGROUND;
+  ctx.fillRect(caretX, centerY - CARET_HEIGHT / 2, CARET_WIDTH, CARET_HEIGHT);
+}
+
+function drawMenu(ctx, { touchMode }) {
   drawTitle(ctx, 130, 72);
   drawText(ctx, touchMode ? 'Tap to start' : 'Press Space to start', CENTER_X, 220, { size: 20 });
   drawButton(ctx, CHANGE_KEY_BUTTON, touchMode ? 'Change API key' : 'Change API key (K)');
-  drawLatency(ctx, stats);
 }
 
-function drawCourt(ctx, { match, stats, touchMode }) {
+function drawCourt(ctx, { screen, apiError, match, stats, touchMode }) {
+  // The center line, the ball and the latency indicator only show while the game runs (not frozen by a Jev error),
+  // so banners and overlays sit on a quieter court.
+  const active = screen === 'playing' && !apiError;
+  if (active) {
+    drawCenterLine(ctx);
+    // Drawn before the field so the Jev paddle passes over the indicator instead of disappearing beneath it.
+    drawLatency(ctx, stats);
+  }
+  drawField(ctx, match, { showBall: active });
+
+  // The match-over screen already shows the final score and every round's result, and a finished match can't be paused.
+  const showHud = screen !== 'match-over';
+  if (showHud) {
+    drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 24, { size: 20 });
+    drawText(ctx, `Round ${match.round}/${ROUNDS}`, CENTER_X, 46, { size: 14, color: DIM });
+  }
+  if (showHud && touchMode) {
+    drawButton(ctx, PAUSE_BUTTON, 'II');
+  }
+}
+
+function drawCenterLine(ctx) {
   ctx.strokeStyle = DIM;
   ctx.lineWidth = 2;
   ctx.setLineDash([10, 10]);
@@ -150,20 +212,10 @@ function drawCourt(ctx, { match, stats, touchMode }) {
   ctx.lineTo(CENTER_X, FIELD.y + FIELD.height);
   ctx.stroke();
   ctx.setLineDash([]);
-
-  // Drawn before the field so the Jev paddle passes over the indicator instead of disappearing beneath it.
-  drawLatency(ctx, stats);
-  drawField(ctx, match);
-
-  drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 24, { size: 20 });
-  drawText(ctx, `Round ${match.round}/${ROUNDS}`, CENTER_X, 46, { size: 14, color: DIM });
-  if (touchMode) {
-    drawButton(ctx, PAUSE_BUTTON, 'II');
-  }
 }
 
 // Paddles and ball live in court coordinates; the transform maps them into the padded play field.
-function drawField(ctx, match) {
+function drawField(ctx, match, { showBall }) {
   ctx.save();
   // Clipping makes a scoring ball vanish at the field's side edge instead of drifting into the padding.
   ctx.beginPath();
@@ -174,7 +226,9 @@ function drawField(ctx, match) {
   ctx.fillStyle = FOREGROUND;
   ctx.fillRect(LEFT_PADDLE_X, match.paddles.human - PADDLE.height / 2, PADDLE.width, PADDLE.height);
   ctx.fillRect(RIGHT_PADDLE_X, match.paddles.jev - PADDLE.height / 2, PADDLE.width, PADDLE.height);
-  ctx.fillRect(match.ball.x - BALL_SIZE / 2, match.ball.y - BALL_SIZE / 2, BALL_SIZE, BALL_SIZE);
+  if (showBall) {
+    ctx.fillRect(match.ball.x - BALL_SIZE / 2, match.ball.y - BALL_SIZE / 2, BALL_SIZE, BALL_SIZE);
+  }
   ctx.restore();
 }
 
@@ -195,7 +249,7 @@ function drawLatency(ctx, stats) {
   const label = last === null
     ? 'Jev · — ms'
     : `Jev · ${Math.round(last)} ms · avg ${Math.round(stats.average)} ms`;
-  drawText(ctx, label, right, y, { size: 12, align: 'right' });
+  drawText(ctx, label, right, y, { size: 12, align: 'right', color: DIM });
 
   const labelWidth = ctx.measureText(label).width;
   ctx.fillStyle = last === null ? DIM : LEVEL_COLORS[latencyLevel(last)];
