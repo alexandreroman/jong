@@ -29,3 +29,4 @@
 - [TypeSafe Jev API](references/typesafe_jev_api.md) — endpoint, payload shape, CORS rejected for browsers
 - [Environment file](references/project_env_file.md) — single git-ignored .env; no .env.local
 - [Makefile as the tooling entry point](references/feedback_makefile_tooling.md) — generic Makefile targets, no sh scripts or tool prefixes
+- [Fly.io deployment](references/project_fly_deployment.md) — one machine in lax, deploys pin the image digest (kbld)
