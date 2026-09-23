@@ -15,6 +15,10 @@ const OVERLAY = 'rgba(0, 0, 0, 0.75)';
 const FONT = 'monospace';
 const LEVEL_COLORS = { good: '#3c3', fair: '#f90', poor: '#e33' };
 const CENTER_X = COURT.width / 2;
+const CENTER_Y = COURT.height / 2;
+const BANNER_TITLE_STYLE = { size: 40, bold: true };
+// Space between the ink of the banner title and its subtitle.
+const BANNER_GAP = 24;
 const HUD_BOTTOM = 60;
 // Horizontal space between the center line and each HUD column, wide enough to fit the score dash between them.
 const HUD_GAP = 20;
@@ -130,23 +134,37 @@ function drawBackground(ctx) {
   ctx.fillRect(0, 0, COURT.width, COURT.height);
 }
 
+function fontFor(size, bold) {
+  return `${bold ? 'bold ' : ''}${size}px ${FONT}`;
+}
+
 function drawText(ctx, text, x, y, { size = 16, color = FOREGROUND, align = 'center', bold = false } = {}) {
   ctx.fillStyle = color;
-  ctx.font = `${bold ? 'bold ' : ''}${size}px ${FONT}`;
+  ctx.font = fontFor(size, bold);
   ctx.textAlign = align;
   ctx.textBaseline = 'middle';
   ctx.fillText(text, x, y);
 }
 
 // Centers the glyphs' actual ink on centerY: the 'middle' baseline sits visibly off-center with monospace fonts.
-function drawCenteredText(ctx, text, x, centerY, { color = FOREGROUND } = {}) {
+function drawCenteredText(ctx, text, x, centerY, { size = 16, color = FOREGROUND, bold = false } = {}) {
   ctx.fillStyle = color;
-  ctx.font = `16px ${FONT}`;
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
-  const metrics = ctx.measureText(text);
+  const metrics = measureInk(ctx, text, { size, bold });
   const baselineY = centerY + (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 2;
   ctx.fillText(text, x, baselineY);
+}
+
+// Measures text from the alphabetic baseline, which is the baseline drawCenteredText draws on.
+function measureInk(ctx, text, { size = 16, bold = false } = {}) {
+  ctx.font = fontFor(size, bold);
+  ctx.textBaseline = 'alphabetic';
+  return ctx.measureText(text);
+}
+
+function inkHeight(ctx, text, style) {
+  const metrics = measureInk(ctx, text, style);
+  return metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
 }
 
 function drawTitle(ctx, y, size) {
@@ -332,11 +350,17 @@ function drawSparkline(ctx, samples, box) {
 }
 
 // No backing box: drawCourt already hides the center line and the ball on banner screens, so nothing moves behind.
+// The title alone, or the title and subtitle as one block, is centered on the court.
 function drawBanner(ctx, title, subtitle) {
-  drawText(ctx, title, CENTER_X, 180, { size: 40, bold: true });
-  if (subtitle) {
-    drawText(ctx, subtitle, CENTER_X, 225);
+  if (!subtitle) {
+    drawCenteredText(ctx, title, CENTER_X, CENTER_Y, BANNER_TITLE_STYLE);
+    return;
   }
+  const titleHeight = inkHeight(ctx, title, BANNER_TITLE_STYLE);
+  const subtitleHeight = inkHeight(ctx, subtitle);
+  const top = CENTER_Y - (titleHeight + BANNER_GAP + subtitleHeight) / 2;
+  drawCenteredText(ctx, title, CENTER_X, top + titleHeight / 2, BANNER_TITLE_STYLE);
+  drawCenteredText(ctx, subtitle, CENTER_X, top + titleHeight + BANNER_GAP + subtitleHeight / 2);
 }
 
 function drawPlayOverlay(ctx, view) {

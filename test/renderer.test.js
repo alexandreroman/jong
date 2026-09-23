@@ -313,6 +313,26 @@ describe('render court', () => {
     }
   });
 
+  // Fake ink spans 12 px above and 2 px below the baseline. The banner draws after the HUD, which also shows
+  // 'Round 1', so the last matching call is the banner's.
+  const inkOf = (calls, text) => {
+    const baseline = calls.findLast((call) => call.name === 'fillText' && call.args[0] === text).args[2];
+    return { top: baseline - 12, bottom: baseline + 2 };
+  };
+
+  it('centers the point-scored title ink on the court', () => {
+    const { top, bottom } = inkOf(renderCourt('point-scored'), 'You score!');
+    assert.equal((top + bottom) / 2, COURT.height / 2);
+  });
+
+  it('centers the round-intro title and subtitle as one block on the court', () => {
+    const calls = renderCourt('round-intro');
+    const title = inkOf(calls, 'Round 1');
+    const subtitle = inkOf(calls, 'Starting in 1');
+    assert.ok(title.bottom < subtitle.top);
+    assert.equal((title.top + subtitle.bottom) / 2, COURT.height / 2);
+  });
+
   it('draws the portrait hint without a band behind it', () => {
     const ctx = recordingContext();
     const view = { screen: 'playing', apiError: null, resumeIn: 0, match, fx: createFx(), stats, touchMode: true };
