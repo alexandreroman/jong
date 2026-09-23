@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { BALL_SIZE } from '../src/game.js';
+import { createFx, updateFx } from '../src/fx.js';
+import { BALL_SIZE, LEFT_PADDLE_X, RIGHT_PADDLE_X } from '../src/game.js';
 import {
   KEY_FIELD, PAUSE_BUTTON, QUIT_BUTTON, START_BUTTON, canvasToCourtY, caretVisible, hitTest, render,
 } from '../src/renderer.js';
@@ -65,6 +66,7 @@ function recordingContext() {
     'fillText', 'save', 'restore', 'moveTo', 'lineTo', 'arc', 'setLineDash', 'translate', 'scale', 'strokeRect']) {
     ctx[name] = (...args) => calls.push({
       name, args, fillStyle: ctx.fillStyle, strokeStyle: ctx.strokeStyle, textAlign: ctx.textAlign,
+      globalAlpha: ctx.globalAlpha,
     });
   }
   ctx.measureText = (text) => ({ width: text.length * 10, actualBoundingBoxAscent: 12, actualBoundingBoxDescent: 2 });
@@ -149,9 +151,9 @@ describe('render court', () => {
   };
   const stats = { last: null, average: 0, samples: [] };
 
-  function renderCourt(screen, apiError = null, touchMode = false) {
+  function renderCourt(screen, apiError = null, touchMode = false, fx = createFx()) {
     const ctx = recordingContext();
-    const view = { screen, apiError, resumeIn: 0, match, stats, timer: 1, lastScorer: 'human' };
+    const view = { screen, apiError, resumeIn: 0, match, fx, stats, timer: 1, lastScorer: 'human' };
     render(ctx, { ...view, touchMode, portrait: false });
     return ctx.calls;
   }
@@ -219,6 +221,50 @@ describe('render court', () => {
       && call.args[1] === PAUSE_BUTTON.y;
     assert.ok(renderCourt('playing', null, true).some(isPauseButton));
     assert.ok(!renderCourt('match-over', null, true).some(isPauseButton));
+  });
+
+  // A trail square is centered on an old ball position and smaller than the ball.
+  const isTrailSquare = (call) => call.name === 'fillRect' && call.args[2] < BALL_SIZE && call.args[2] === call.args[3];
+
+  function fxWithTrail() {
+    const fx = createFx();
+    updateFx(fx, 1 / 60, { ball: { x: 360, y: 180 }, hit: null });
+    updateFx(fx, 1 / 60, { ball: { x: 380, y: 190 }, hit: null });
+    return fx;
+  }
+
+  it('draws the trail behind the ball, older squares smaller and fainter', () => {
+    const calls = renderCourt('playing', null, false, fxWithTrail());
+    const trail = calls.filter(isTrailSquare);
+    assert.equal(trail.length, 2);
+    const [older, newer] = trail;
+    assert.ok(older.args[2] < newer.args[2]);
+    assert.ok(older.globalAlpha < newer.globalAlpha);
+    assert.ok(newer.globalAlpha < 1);
+    const ball = calls.find(isBall);
+    assert.equal(ball.globalAlpha, 1);
+    assert.ok(calls.indexOf(newer) < calls.indexOf(ball));
+  });
+
+  it('hides the trail whenever the ball is hidden', () => {
+    for (const screen of ['round-intro', 'point-scored', 'paused', 'match-over']) {
+      assert.ok(!renderCourt(screen, null, false, fxWithTrail()).some(isTrailSquare), `trail on ${screen}`);
+    }
+  });
+
+  it('pulls a paddle away from the court center while it recoils', () => {
+    const paddleXs = (fx) => renderCourt('playing', null, false, fx)
+      .filter((call) => call.name === 'fillRect' && call.args[3] === 80)
+      .map((call) => call.args[0]);
+    assert.deepEqual(paddleXs(createFx()), [LEFT_PADDLE_X, RIGHT_PADDLE_X]);
+
+    const humanHit = createFx();
+    updateFx(humanHit, 0, { ball: match.ball, hit: 'human' });
+    assert.deepEqual(paddleXs(humanHit), [LEFT_PADDLE_X - 5, RIGHT_PADDLE_X]);
+
+    const jevHit = createFx();
+    updateFx(jevHit, 0, { ball: match.ball, hit: 'jev' });
+    assert.deepEqual(paddleXs(jevHit), [LEFT_PADDLE_X, RIGHT_PADDLE_X + 5]);
   });
 
   it('hides the latency indicator on the menu', () => {

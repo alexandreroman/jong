@@ -2,6 +2,7 @@
 
 import { LatencyStats, createJevController } from './ai.js';
 import { buildRequestBody, describeError, requestDecision } from './api.js';
+import { createFx, updateFx } from './fx.js';
 import { createMatch, isMatchOver, startRound, step } from './game.js';
 import { createInput } from './input.js';
 import {
@@ -32,6 +33,7 @@ const stats = new LatencyStats();
 const app = {
   screen: 'key-entry',
   match: createMatch(),
+  fx: createFx(),
   message: null,
   apiError: null,
   resumeIn: 0,
@@ -101,6 +103,8 @@ function startMatch() {
 
 function beginRound() {
   startRound(app.match);
+  // The ball jumps back to the center, so the old trail would streak across the court.
+  app.fx = createFx();
   jev.reset();
   app.timer = ROUND_INTRO_S;
   app.screen = 'round-intro';
@@ -215,7 +219,7 @@ function updatePlaying(dt) {
     }
     return;
   }
-  const scorer = step(app.match, dt, {
+  const { scorer, hit } = step(app.match, dt, {
     humanDirection: input.state.direction,
     humanTargetY: touchTargetY(),
     jevTargetY: jev.targetY,
@@ -225,7 +229,10 @@ function updatePlaying(dt) {
     app.lastScorer = scorer;
     app.timer = POINT_SCORED_S;
     app.screen = 'point-scored';
+    return;
   }
+  // Effects only advance here, so they freeze with the game while paused or while a Jev error holds play.
+  updateFx(app.fx, dt, { ball: app.match.ball, hit });
 }
 
 // The finger is tracked in canvas coordinates, but the paddle is drawn inside the padded play field.
@@ -242,6 +249,7 @@ function buildView(time) {
   return {
     screen: app.screen,
     match: app.match,
+    fx: app.fx,
     stats,
     keyLength: input.keyValue.length,
     keyFocused: input.state.keyFocused,

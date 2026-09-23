@@ -26,7 +26,7 @@ function scorePoint(match, scorer) {
   match.ball = scorer === 'human'
     ? { x: COURT.width + 100, y: 200, vx: 1, vy: 0 }
     : { x: -100, y: 200, vx: -1, vy: 0 };
-  return step(match, 1 / 60, {});
+  return step(match, 1 / 60, {}).scorer;
 }
 
 describe('createMatch', () => {
@@ -88,7 +88,7 @@ describe('step: ball', () => {
 
   it('returns a center hit straight back, 5% faster', () => {
     const match = matchWithBall({ x: 40, y: 200, vx: -300, vy: 0 });
-    assert.equal(step(match, FRAME, {}), null);
+    assert.deepEqual(step(match, FRAME, {}), { scorer: null, hit: 'human' });
     assert.ok(match.ball.vx > 0);
     assert.ok(Math.abs(match.ball.vy) < 1e-9);
     assert.ok(Math.abs(speedOf(match.ball) - 315) < 1e-9);
@@ -103,7 +103,7 @@ describe('step: ball', () => {
 
   it('bounces off the Jev paddle toward the human', () => {
     const match = matchWithBall({ x: 760, y: 200, vx: 300, vy: 0 });
-    step(match, FRAME, { jevTargetY: 200 });
+    assert.equal(step(match, FRAME, { jevTargetY: 200 }).hit, 'jev');
     assert.ok(match.ball.vx < 0);
   });
 
@@ -116,9 +116,18 @@ describe('step: ball', () => {
   it('never tunnels through a paddle at top speed', () => {
     const match = matchWithBall({ x: 60, y: 200, vx: -700, vy: 0 });
     for (let i = 0; i < 10 && match.ball.vx < 0; i++) {
-      assert.equal(step(match, FRAME, {}), null);
+      assert.equal(step(match, FRAME, {}).scorer, null);
     }
     assert.ok(match.ball.vx > 0);
+  });
+
+  it('reports no hit while the ball flies or bounces off a wall', () => {
+    assert.equal(step(matchWithBall({ x: 400, y: 200, vx: 300, vy: 0 }), FRAME, {}).hit, null);
+    assert.equal(step(matchWithBall({ x: 400, y: 8, vx: 0, vy: -300 }), FRAME, {}).hit, null);
+  });
+
+  it('reports neither a hit nor a point for an empty frame', () => {
+    assert.deepEqual(step(matchWithBall({ x: 40, y: 200, vx: -300, vy: 0 }), 0, {}), { scorer: null, hit: null });
   });
 
   it('clamps a long frame to 1/30 s', () => {
@@ -133,7 +142,7 @@ describe('step: scoring', () => {
     const match = matchWithBall({ x: 30, y: 300, vx: -300, vy: 0 }, { human: 40 });
     let scorer = null;
     for (let i = 0; i < 10 && scorer === null; i++) {
-      scorer = step(match, FRAME, {});
+      scorer = step(match, FRAME, {}).scorer;
     }
     assert.equal(scorer, 'jev');
     assert.deepEqual(match.score, { human: 0, jev: 1 });

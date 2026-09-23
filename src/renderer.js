@@ -1,6 +1,7 @@
 // All Canvas drawing for Jong. Reads the view built by main.js and never mutates game or AI state.
 
 import { LATENCY_WINDOW, latencyLevel } from './ai.js';
+import { TRAIL_DURATION_S, recoilOffset } from './fx.js';
 import { BALL_SIZE, COURT, LEFT_PADDLE_X, PADDLE, RIGHT_PADDLE_X, ROUNDS, matchWinner } from './game.js';
 
 const FOREGROUND = '#fff';
@@ -27,6 +28,10 @@ const CARET_BLINK_MS = 530;
 const CARET_WIDTH = 2;
 const CARET_HEIGHT = 20;
 const CARET_GAP = 3;
+// The newest trail square is almost ball-sized and faint; older ones shrink and fade out, so the trail stays subtle.
+const TRAIL_MAX_OPACITY = 0.35;
+const TRAIL_MIN_SCALE = 0.4;
+const TRAIL_MAX_SCALE = 0.9;
 // Gap above and below the play field so paddles and ball, at their extreme positions, stay clear of the border.
 const COURT_PADDING = 10;
 // The court is scaled uniformly (not squashed) to fit between the paddings, then centered horizontally.
@@ -186,7 +191,7 @@ function drawMenu(ctx, { touchMode }) {
   drawButton(ctx, CHANGE_KEY_BUTTON, touchMode ? 'Change API key' : 'Change API key (K)');
 }
 
-function drawCourt(ctx, { screen, apiError, match, stats, touchMode }) {
+function drawCourt(ctx, { screen, apiError, match, fx, stats, touchMode }) {
   // The center line, the ball and the latency indicator only show while the game runs (not frozen by a Jev error),
   // so banners and overlays sit on a quieter court.
   const active = screen === 'playing' && !apiError;
@@ -195,7 +200,7 @@ function drawCourt(ctx, { screen, apiError, match, stats, touchMode }) {
     // Drawn before the field so the Jev paddle passes over the indicator instead of disappearing beneath it.
     drawLatency(ctx, stats);
   }
-  drawField(ctx, match, { showBall: active });
+  drawField(ctx, match, fx, { showBall: active });
 
   // The match-over screen already shows the final score and every round's result, and a finished match can't be paused.
   const showHud = screen !== 'match-over';
@@ -232,7 +237,7 @@ function drawCenterLine(ctx) {
 }
 
 // Paddles and ball live in court coordinates; the transform maps them into the padded play field.
-function drawField(ctx, match, { showBall }) {
+function drawField(ctx, match, fx, { showBall }) {
   ctx.save();
   // Clipping makes a scoring ball vanish at the field's side edge instead of drifting into the padding.
   ctx.beginPath();
@@ -241,12 +246,27 @@ function drawField(ctx, match, { showBall }) {
   ctx.translate(FIELD.x, FIELD.y);
   ctx.scale(FIELD_SCALE, FIELD_SCALE);
   ctx.fillStyle = FOREGROUND;
-  ctx.fillRect(LEFT_PADDLE_X, match.paddles.human - PADDLE.height / 2, PADDLE.width, PADDLE.height);
-  ctx.fillRect(RIGHT_PADDLE_X, match.paddles.jev - PADDLE.height / 2, PADDLE.width, PADDLE.height);
+  // Recoil pulls each paddle away from the court center; it only moves the drawing, never the physics.
+  const humanX = LEFT_PADDLE_X - recoilOffset(fx, 'human');
+  const jevX = RIGHT_PADDLE_X + recoilOffset(fx, 'jev');
+  ctx.fillRect(humanX, match.paddles.human - PADDLE.height / 2, PADDLE.width, PADDLE.height);
+  ctx.fillRect(jevX, match.paddles.jev - PADDLE.height / 2, PADDLE.width, PADDLE.height);
   if (showBall) {
+    drawTrail(ctx, fx.trail);
     ctx.fillRect(match.ball.x - BALL_SIZE / 2, match.ball.y - BALL_SIZE / 2, BALL_SIZE, BALL_SIZE);
   }
   ctx.restore();
+}
+
+// Squares like the ball itself, oldest first so newer ones are drawn on top.
+function drawTrail(ctx, trail) {
+  for (const point of trail) {
+    const freshness = 1 - point.age / TRAIL_DURATION_S;
+    const size = BALL_SIZE * (TRAIL_MIN_SCALE + (TRAIL_MAX_SCALE - TRAIL_MIN_SCALE) * freshness);
+    ctx.globalAlpha = TRAIL_MAX_OPACITY * freshness;
+    ctx.fillRect(point.x - size / 2, point.y - size / 2, size, size);
+  }
+  ctx.globalAlpha = 1;
 }
 
 // Inset by half the line width so the whole stroke stays inside the canvas.

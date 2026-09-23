@@ -14,6 +14,8 @@ HTML canvas. The only server is a tiny local proxy.
   game HUD
 - **Canvas only** — no UI framework, no build step, no
   npm dependencies
+- **Hit feedback** — the ball leaves a short fading trail,
+  and a paddle recoils when it strikes the ball
 - **Mobile-friendly** — the 800x400 court scales down to
   fit smaller screens, with touch controls
 - **Your key stays in memory** — the TypeSafe API key you
@@ -87,6 +89,16 @@ or y 360, so the requested direction may not be reachable.
 While the ball moves away, the paddle goes back
 to the middle of the court, whatever Jev answers.
 
+## Visual Effects
+
+The ball trail and the paddle recoil live in `src/fx.js`
+and never touch the physics: `game.js` only reports which
+paddle hit the ball during a step, and the renderer shifts
+the paddle drawing by the recoil offset. The effects run on
+the frame time, so they look the same at any frame rate,
+freeze while the game is paused, and reset whenever the
+ball is served again.
+
 ## Architecture
 
 The TypeSafe API rejects cross-origin requests from
@@ -106,6 +118,7 @@ graph LR
 | ------------- | ---------------------------------------------- |
 | `index.html`  | Page hosting the game canvas                   |
 | `src/`        | Browser game code (ES modules)                 |
+| `src/fx.js`   | Visual-only effects: ball trail, paddle recoil |
 | `server.mjs`  | Static file server and TypeSafe proxy          |
 | `test/`       | Tests run with the built-in `node --test`      |
 

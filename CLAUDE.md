@@ -29,10 +29,11 @@ make app-up  # server without watching (blocking)
 
 - `index.html` — page hosting the game canvas
 - `src/` — browser game code: `game.js` (pure physics and
-  rounds), `api.js` (Jev request and errors), `ai.js`
-  (decision loop, latency), `input.js`, `renderer.js`,
-  `viewport.js` (800x400 logical court), `main.js` (state
-  machine and loop)
+  rounds, reports paddle hits), `fx.js` (visual-only ball
+  trail and paddle recoil), `api.js` (Jev request and
+  errors), `ai.js` (decision loop, latency), `input.js`,
+  `renderer.js`, `viewport.js` (800x400 logical court),
+  `main.js` (state machine and loop)
 - `server.mjs` — static server and TypeSafe proxy
 - `test/` — `node --test` suites
 - `.casper.json` — Casper workspace config: `setup` runs
