@@ -57,6 +57,36 @@ make check   # run tests and syntax checks
 | `PORT`             | Port the local server listens | `3000`                                  |
 | `TYPESAFE_API_URL` | Upstream URL for Jev requests | `https://api.typesafe.ai/v1/systemone`  |
 
+## How Jev Plays
+
+The game keeps exactly one Jev request in flight and sends
+the next one as soon as the answer arrives. Each request
+carries the ball position and velocity, both paddles and,
+while the ball comes toward Jev, two hints: the time in
+seconds until the ball reaches Jev's paddle
+(`timeToReachYou`) and the number of top/bottom wall
+bounces before then (`wallBounces`). Jev still has to work
+out where the ball lands from these hints.
+
+Each request asks two `choice` questions:
+
+- **`target`** — which of ten 40 px zones (`y0-40` to
+  `y360-400`, top to bottom) the ball reaches the paddle
+  in; the paddle aims at the zone center
+- **`aim`** — `up`, `straight` or `down`: where to send
+  the ball back, away from the human paddle
+
+The game then shifts the paddle 15 px from the zone center
+so the ball hits the side that deflects it in the chosen
+direction. The ball lands up to 20 px from the zone center,
+so an aimed hit uses 35 px of the 45 px hit tolerance; the
+remaining 10 px absorb rounding, wall-clamp drift and
+imperfect estimates. In the edge zones (`y0-40` and
+`y360-400`), the paddle cannot move its center past y 40
+or y 360, so the requested direction may not be reachable.
+While the ball moves away, the paddle goes back
+to the middle of the court, whatever Jev answers.
+
 ## Architecture
 
 The TypeSafe API rejects cross-origin requests from

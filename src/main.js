@@ -1,7 +1,7 @@
 // Jong entry point: owns the screen state machine and the animation loop.
 
 import { LatencyStats, createJevController } from './ai.js';
-import { buildRequestBody, describeError, requestZone } from './api.js';
+import { buildRequestBody, describeError, requestDecision } from './api.js';
 import { createMatch, isMatchOver, startRound, step } from './game.js';
 import { createInput } from './input.js';
 import {
@@ -53,7 +53,7 @@ async function submitKey() {
 
   const startedAt = performance.now();
   try {
-    await requestZone({ apiKey, body: buildRequestBody(createMatch()) });
+    await requestDecision({ apiKey, body: buildRequestBody(createMatch()) });
     stats.add(performance.now() - startedAt);
     jev = createJevController({
       apiKey,

@@ -71,6 +71,28 @@ export function step(match, dt, controls) {
   return moveBall(match, t);
 }
 
+/**
+ * Predicts when a ball moving toward Jev reaches the Jev paddle face, and how many times it bounces
+ * off the top and bottom walls on the way. Walls reflect the ball center at BALL_SIZE/2 from each
+ * edge, as in bounceOffWalls.
+ *
+ * @returns {{ seconds: number, wallBounces: number } | null} null when the ball is not moving toward Jev
+ */
+export function predictArrivalAtJev(ball) {
+  if (ball.vx <= 0) {
+    return null;
+  }
+  const distance = Math.max(0, RIGHT_PADDLE_X - BALL_HALF - ball.x);
+  const seconds = distance / ball.vx;
+
+  // Unfold the reflections: the ball center travels freely along a line where each span of
+  // `travel` pixels is one crossing of the court, so the number of spans crossed is the number of bounces.
+  const travel = COURT.height - BALL_SIZE;
+  const unfoldedY = ball.y - BALL_HALF + ball.vy * seconds;
+  const wallBounces = Math.abs(Math.floor(unfoldedY / travel));
+  return { seconds, wallBounces };
+}
+
 export function isMatchOver(match) {
   return match.results.length >= ROUNDS;
 }

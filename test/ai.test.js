@@ -2,11 +2,14 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  AIM_OFFSET_PX,
+  COURT_MIDDLE_Y,
   LatencyStats,
   ZONE_TARGET_Y,
   backoffDelay,
   createJevController,
   latencyLevel,
+  paddleTargetY,
 } from '../src/ai.js';
 import { JevError } from '../src/api.js';
 
@@ -19,14 +22,15 @@ function createHarness() {
   const errors = [];
   let recoveries = 0;
   let clock = 0;
+  let ballMovingTowardYou = true;
   const controller = createJevController({
     apiKey: 'sk-test',
-    getBody: () => ({ sent: calls.length }),
+    getBody: () => ({ sent: calls.length, state: { ballMovingTowardYou } }),
     onError: (error) => errors.push(error),
     onRecover: () => {
       recoveries += 1;
     },
-    requestZoneFn: (args) => new Promise((resolve, reject) => calls.push({ args, resolve, reject })),
+    requestDecisionFn: (args) => new Promise((resolve, reject) => calls.push({ args, resolve, reject })),
     now: () => clock,
     setTimer: (fn, ms) => {
       const timer = { fn, ms };
@@ -48,6 +52,9 @@ function createHarness() {
     get recoveries() {
       return recoveries;
     },
+    set ballMovingTowardYou(value) {
+      ballMovingTowardYou = value;
+    },
     advance(ms) {
       clock += ms;
     },
@@ -57,8 +64,8 @@ function createHarness() {
       await settle();
       return timer.ms;
     },
-    async answer(zone) {
-      calls.at(-1).resolve(zone);
+    async answer(zone, aim = 'straight') {
+      calls.at(-1).resolve({ zone, aim });
       await settle();
     },
     async fail(kind) {
@@ -69,8 +76,22 @@ function createHarness() {
 }
 
 describe('helpers', () => {
-  it('maps zones to paddle targets', () => {
-    assert.deepEqual(ZONE_TARGET_Y, { top: 40, upper: 120, middle: 200, lower: 280, bottom: 360 });
+  it('maps zones to their centers', () => {
+    assert.deepEqual(Object.values(ZONE_TARGET_Y), [20, 60, 100, 140, 180, 220, 260, 300, 340, 380]);
+    assert.equal(ZONE_TARGET_Y['y0-40'], 20);
+    assert.equal(ZONE_TARGET_Y['y360-400'], 380);
+    assert.equal(COURT_MIDDLE_Y, 200);
+  });
+
+  it('offsets the paddle so the ball hits the side that sends it where Jev aims', () => {
+    assert.equal(AIM_OFFSET_PX, 15);
+    assert.equal(paddleTargetY({ zone: 'y240-280', aim: 'straight' }, true), 260);
+    assert.equal(paddleTargetY({ zone: 'y240-280', aim: 'up' }, true), 275);
+    assert.equal(paddleTargetY({ zone: 'y240-280', aim: 'down' }, true), 245);
+  });
+
+  it('recenters without offset while the ball moves away', () => {
+    assert.equal(paddleTargetY({ zone: 'y0-40', aim: 'up' }, false), 200);
   });
 
   it('backs off 0.5, 1, 2, 4, then 8 s', () => {
@@ -117,7 +138,7 @@ describe('createJevController', () => {
     assert.equal(await h.fireTimer(), 0);
     assert.equal(h.calls.length, 1);
     assert.equal(h.calls[0].args.apiKey, 'sk-test');
-    assert.deepEqual(h.calls[0].args.body, { sent: 0 });
+    assert.deepEqual(h.calls[0].args.body, { sent: 0, state: { ballMovingTowardYou: true } });
     assert.equal(h.timers.length, 0);
   });
 
@@ -126,8 +147,8 @@ describe('createJevController', () => {
     h.controller.start();
     await h.fireTimer();
     h.advance(120);
-    await h.answer('lower');
-    assert.equal(h.controller.targetY, 280);
+    await h.answer('y240-280', 'down');
+    assert.equal(h.controller.targetY, 245);
     assert.equal(h.controller.stats.last, 120);
     assert.equal(h.timers.length, 1);
     assert.equal(h.timers[0].ms, 0);
@@ -138,7 +159,7 @@ describe('createJevController', () => {
     h.controller.start();
     await h.fireTimer();
     h.advance(20);
-    await h.answer('top');
+    await h.answer('y0-40');
     assert.equal(h.timers[0].ms, 30);
   });
 
@@ -153,9 +174,9 @@ describe('createJevController', () => {
     await h.fail('timeout');
     assert.equal(await h.fireTimer(), 1000);
     assert.equal(h.recoveries, 0);
-    await h.answer('top');
+    await h.answer('y0-40');
     assert.equal(h.recoveries, 1);
-    assert.equal(h.controller.targetY, 40);
+    assert.equal(h.controller.targetY, 20);
     assert.equal(h.controller.stats.samples.length, 1);
   });
 
@@ -174,7 +195,7 @@ describe('createJevController', () => {
     h.controller.start();
     await h.fireTimer();
     h.controller.stop();
-    await h.answer('bottom');
+    await h.answer('y360-400');
     assert.equal(h.controller.targetY, 200);
     assert.equal(h.controller.stats.last, null);
     assert.equal(h.timers.length, 0);
@@ -197,11 +218,33 @@ describe('createJevController', () => {
     assert.equal(h.calls[0].args.signal.aborted, true);
   });
 
+  it('recenters while the ball moves away, whatever Jev answers, and keeps asking', async () => {
+    const h = createHarness();
+    h.ballMovingTowardYou = false;
+    h.controller.start();
+    await h.fireTimer();
+    h.advance(90);
+    await h.answer('y360-400', 'up');
+    assert.equal(h.controller.targetY, 200);
+    assert.equal(h.controller.stats.last, 90);
+    assert.equal(h.timers.length, 1);
+  });
+
+  it('judges the recentering from the body sent with the request', async () => {
+    const h = createHarness();
+    h.controller.start();
+    await h.fireTimer();
+    // The ball turns around while the request is in flight; the answer still applies to the sent state.
+    h.ballMovingTowardYou = false;
+    await h.answer('y360-400');
+    assert.equal(h.controller.targetY, 380);
+  });
+
   it('resets the target to the middle', async () => {
     const h = createHarness();
     h.controller.start();
     await h.fireTimer();
-    await h.answer('bottom');
+    await h.answer('y360-400');
     h.controller.reset();
     assert.equal(h.controller.targetY, 200);
   });

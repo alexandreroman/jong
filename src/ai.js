@@ -1,9 +1,21 @@
 // Jev decision loop: keeps one request in flight, turns answers into paddle targets,
 // tracks latency and retries failures with backoff.
 
-import { requestZone } from './api.js';
+import { ZONES, ZONE_HEIGHT, requestDecision } from './api.js';
+import { COURT } from './game.js';
 
-export const ZONE_TARGET_Y = { top: 40, upper: 120, middle: 200, lower: 280, bottom: 360 };
+// Center of each zone. No zone is centered on the court middle, hence COURT_MIDDLE_Y.
+export const ZONE_TARGET_Y = Object.fromEntries(
+  ZONES.map((zone, index) => [zone, index * ZONE_HEIGHT + ZONE_HEIGHT / 2]),
+);
+export const COURT_MIDDLE_Y = COURT.height / 2;
+// Hitting the ball off-center angles it: the ball must meet the upper part of the paddle to go up.
+// Budget: the ball lands up to 20 px (half a zone) from the zone center; adding this 15 px offset gives 35 px,
+// which leaves 10 px of the 45 px hit tolerance (PADDLE.height / 2 + BALL_SIZE / 2) as slack for wall-clamp
+// drift (bounceOffWalls clamps without reflecting the overshoot), rounding of the state sent to Jev, and
+// imperfect estimates.
+export const AIM_OFFSET_PX = 15;
+const AIM_OFFSETS = { up: AIM_OFFSET_PX, straight: 0, down: -AIM_OFFSET_PX };
 export const BACKOFF_DELAYS_MS = [500, 1000, 2000, 4000, 8000];
 export const MIN_REQUEST_GAP_MS = 50;
 export const LATENCY_WINDOW = 20;
@@ -44,6 +56,16 @@ export class LatencyStats {
 }
 
 /**
+ * Paddle target for a Jev decision. The paddle recenters while the ball moves away, whatever Jev answered.
+ */
+export function paddleTargetY({ zone, aim }, ballMovingTowardYou) {
+  if (!ballMovingTowardYou) {
+    return COURT_MIDDLE_Y;
+  }
+  return ZONE_TARGET_Y[zone] + AIM_OFFSETS[aim];
+}
+
+/**
  * Creates the loop that steers the Jev paddle. Time and I/O are injected so the loop can be tested.
  */
 export function createJevController({
@@ -52,7 +74,7 @@ export function createJevController({
   stats = new LatencyStats(),
   onError = () => {},
   onRecover = () => {},
-  requestZoneFn = requestZone,
+  requestDecisionFn = requestDecision,
   now = () => performance.now(),
   setTimer = setTimeout,
   clearTimer = clearTimeout,
@@ -62,7 +84,7 @@ export function createJevController({
   let generation = 0;
   let timer = null;
   let failures = 0;
-  let targetY = ZONE_TARGET_Y.middle;
+  let targetY = COURT_MIDDLE_Y;
   let abortController = null;
 
   function schedule(delayMs, runGeneration) {
@@ -76,13 +98,14 @@ export function createJevController({
     const startedAt = now();
     abortController = new AbortController();
     try {
-      const zone = await requestZoneFn({ apiKey, body: getBody(), signal: abortController.signal });
+      const body = getBody();
+      const decision = await requestDecisionFn({ apiKey, body, signal: abortController.signal });
       if (runGeneration !== generation) {
         return;
       }
       const elapsed = now() - startedAt;
       stats.add(elapsed);
-      targetY = ZONE_TARGET_Y[zone];
+      targetY = paddleTargetY(decision, body.state.ballMovingTowardYou);
       if (failures > 0) {
         failures = 0;
         onRecover();
@@ -126,7 +149,7 @@ export function createJevController({
     start,
     stop,
     reset() {
-      targetY = ZONE_TARGET_Y.middle;
+      targetY = COURT_MIDDLE_Y;
     },
     get targetY() {
       return targetY;

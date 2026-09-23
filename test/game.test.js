@@ -6,6 +6,7 @@ import {
   createMatch,
   isMatchOver,
   matchWinner,
+  predictArrivalAtJev,
   serveDirection,
   startRound,
   step,
@@ -196,5 +197,48 @@ describe('step: paddles', () => {
     step(match, FRAME, { humanDirection: 1, jevTargetY: 0 });
     assert.equal(match.paddles.human, 360);
     assert.equal(match.paddles.jev, 40);
+  });
+});
+
+describe('predictArrivalAtJev', () => {
+  it('is null while the ball moves away from Jev or stands still', () => {
+    assert.equal(predictArrivalAtJev({ x: 400, y: 200, vx: -300, vy: 50 }), null);
+    assert.equal(predictArrivalAtJev({ x: 400, y: 200, vx: 0, vy: 0 }), null);
+  });
+
+  it('times the ball edge reaching the paddle face', () => {
+    // The ball edge meets x 770 when its center is at 765.
+    assert.deepEqual(predictArrivalAtJev({ x: 465, y: 200, vx: 300, vy: 0 }), { seconds: 1, wallBounces: 0 });
+  });
+
+  it('counts no bounce when the ball center stops short of a wall', () => {
+    // Ends at y 394, just above the 395 limit of the ball center.
+    assert.deepEqual(predictArrivalAtJev({ x: 465, y: 200, vx: 300, vy: 194 }), { seconds: 1, wallBounces: 0 });
+  });
+
+  it('counts bounces off the top and bottom walls, accounting for the ball size', () => {
+    assert.equal(predictArrivalAtJev({ x: 465, y: 200, vx: 300, vy: 196 }).wallBounces, 1);
+    assert.equal(predictArrivalAtJev({ x: 465, y: 200, vx: 300, vy: -196 }).wallBounces, 1);
+    // 200 + 600 = 800 unfolded: past the bottom limit (395), then past the top one (5).
+    assert.equal(predictArrivalAtJev({ x: 465, y: 200, vx: 300, vy: 600 }).wallBounces, 2);
+    assert.equal(predictArrivalAtJev({ x: 465, y: 200, vx: 300, vy: -600 }).wallBounces, 2);
+  });
+
+  it('agrees with the simulated wall bounces', () => {
+    const ball = { x: 100, y: 120, vx: 250, vy: -420 };
+    const { seconds, wallBounces } = predictArrivalAtJev(ball);
+    // Paddles out of the way, so only the walls deflect the ball.
+    const match = matchWithBall(ball, { human: 360, jev: 360 });
+    let bounces = 0;
+    let elapsed = 0;
+    while (elapsed + 1 / 600 <= seconds) {
+      const vyBefore = match.ball.vy;
+      step(match, 1 / 600, { jevTargetY: 360 });
+      if (Math.sign(match.ball.vy) !== Math.sign(vyBefore)) {
+        bounces += 1;
+      }
+      elapsed += 1 / 600;
+    }
+    assert.equal(bounces, wallBounces);
   });
 });

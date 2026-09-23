@@ -2,16 +2,19 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  AIMS,
   JevError,
   ZONES,
   buildRequestBody,
   describeError,
   errorKindForStatus,
-  requestZone,
+  requestDecision,
 } from '../src/api.js';
 import { createMatch } from '../src/game.js';
 
-const answer = (choice) => new Response(JSON.stringify({ answers: { target: { type: 'choice', choice } } }));
+const answer = (zone, aim = 'straight') => new Response(JSON.stringify({
+  answers: { target: { type: 'choice', choice: zone }, aim: { type: 'choice', choice: aim } },
+}));
 
 function fakeFetch(response) {
   const calls = [];
@@ -25,38 +28,61 @@ function fakeFetch(response) {
 describe('buildRequestBody', () => {
   it('describes the court from the Jev paddle point of view', () => {
     const match = createMatch();
-    match.ball = { x: 512.4, y: 140.2, vx: 310.2, vy: -160.4 };
+    match.ball = { x: 512.4, y: 140.2, vx: 310.2, vy: -300.4 };
     match.paddles.jev = 210.3;
+    match.paddles.human = 95.6;
 
     const body = buildRequestBody(match);
 
     assert.equal(body.model, 'jev-latest');
     assert.deepEqual(body.state, {
       court: { width: 800, height: 400 },
-      ball: { x: 512, y: 140, vx: 310, vy: -160 },
+      ball: { x: 512, y: 140, vx: 310, vy: -300 },
       yourPaddle: { x: 770, centerY: 210, height: 80 },
+      opponentPaddle: { x: 20, centerY: 96 },
       ballMovingTowardYou: true,
+      // (765 - 512.4) / 310.2 = 0.814 s, and 140.2 - 300.4 * 0.814 goes past the top wall once.
+      timeToReachYou: 0.81,
+      wallBounces: 1,
     });
-    assert.equal(body.questions.target.type, 'choice');
-    assert.match(body.questions.target.instructions, /right paddle/);
-    assert.deepEqual(Object.keys(body.questions.target.criteria), ZONES);
   });
 
-  it('flags a ball moving away from Jev', () => {
+  it('asks for a target zone and an aim', () => {
+    const { questions } = buildRequestBody(createMatch());
+    assert.equal(questions.target.type, 'choice');
+    assert.match(questions.target.instructions, /right paddle/);
+    assert.match(questions.target.instructions, /timeToReachYou/);
+    assert.match(questions.target.instructions, /wallBounces/);
+    assert.deepEqual(Object.keys(questions.target.criteria), ZONES);
+    assert.equal(questions.aim.type, 'choice');
+    assert.match(questions.aim.instructions, /opponentPaddle/);
+    assert.deepEqual(Object.keys(questions.aim.criteria), AIMS);
+  });
+
+  it('lists ten 40 px zones from top to bottom', () => {
+    assert.equal(ZONES.length, 10);
+    assert.equal(ZONES[0], 'y0-40');
+    assert.equal(ZONES[9], 'y360-400');
+  });
+
+  it('flags a ball moving away from Jev and omits the arrival hints', () => {
     const match = createMatch();
     match.ball.vx = -300;
-    assert.equal(buildRequestBody(match).state.ballMovingTowardYou, false);
+    const { state } = buildRequestBody(match);
+    assert.equal(state.ballMovingTowardYou, false);
+    assert.equal('timeToReachYou' in state, false);
+    assert.equal('wallBounces' in state, false);
   });
 });
 
-describe('requestZone', () => {
-  it('posts the body with the key and returns the chosen zone', async () => {
+describe('requestDecision', () => {
+  it('posts the body with the key and returns the chosen zone and aim', async () => {
     const body = buildRequestBody(createMatch());
-    const { calls, fetchFn } = fakeFetch(answer('lower'));
+    const { calls, fetchFn } = fakeFetch(answer('y240-280', 'up'));
 
-    const zone = await requestZone({ apiKey: 'sk-test', body, fetchFn });
+    const decision = await requestDecision({ apiKey: 'sk-test', body, fetchFn });
 
-    assert.equal(zone, 'lower');
+    assert.deepEqual(decision, { zone: 'y240-280', aim: 'up' });
     assert.equal(calls.length, 1);
     assert.equal(calls[0].url, '/api/systemone');
     assert.equal(calls[0].init.method, 'POST');
@@ -69,32 +95,42 @@ describe('requestZone', () => {
     [500, 'server'], [502, 'server']]) {
     it(`maps HTTP ${status} to "${kind}"`, async () => {
       const { fetchFn } = fakeFetch(() => new Response('{}', { status }));
-      await assert.rejects(requestZone({ apiKey: 'k', body: {}, fetchFn }), { name: 'JevError', kind });
+      await assert.rejects(requestDecision({ apiKey: 'k', body: {}, fetchFn }), { name: 'JevError', kind });
     });
   }
 
   it('rejects an unknown zone', async () => {
-    const { fetchFn } = fakeFetch(answer('sideways'));
-    await assert.rejects(requestZone({ apiKey: 'k', body: {}, fetchFn }), { kind: 'invalid-answer' });
+    const { fetchFn } = fakeFetch(answer('middle'));
+    await assert.rejects(requestDecision({ apiKey: 'k', body: {}, fetchFn }), { kind: 'invalid-answer' });
+  });
+
+  it('rejects an unknown aim', async () => {
+    const { fetchFn } = fakeFetch(answer('y0-40', 'sideways'));
+    await assert.rejects(requestDecision({ apiKey: 'k', body: {}, fetchFn }), { kind: 'invalid-answer' });
+  });
+
+  it('rejects an answer without an aim', async () => {
+    const { fetchFn } = fakeFetch(new Response(JSON.stringify({ answers: { target: { choice: 'y0-40' } } })));
+    await assert.rejects(requestDecision({ apiKey: 'k', body: {}, fetchFn }), { kind: 'invalid-answer' });
   });
 
   it('rejects a body that is not JSON', async () => {
     const { fetchFn } = fakeFetch(new Response('oops'));
-    await assert.rejects(requestZone({ apiKey: 'k', body: {}, fetchFn }), { kind: 'invalid-answer' });
+    await assert.rejects(requestDecision({ apiKey: 'k', body: {}, fetchFn }), { kind: 'invalid-answer' });
   });
 
   it('reports an unreachable local server', async () => {
     const fetchFn = async () => {
       throw new TypeError('fetch failed');
     };
-    await assert.rejects(requestZone({ apiKey: 'k', body: {}, fetchFn }), { kind: 'unreachable' });
+    await assert.rejects(requestDecision({ apiKey: 'k', body: {}, fetchFn }), { kind: 'unreachable' });
   });
 
   it('times out a slow request', async () => {
     const fetchFn = (url, { signal }) => new Promise((resolve, reject) => {
       signal.addEventListener('abort', () => reject(signal.reason));
     });
-    await assert.rejects(requestZone({ apiKey: 'k', body: {}, fetchFn, timeoutMs: 10 }), { kind: 'timeout' });
+    await assert.rejects(requestDecision({ apiKey: 'k', body: {}, fetchFn, timeoutMs: 10 }), { kind: 'timeout' });
   });
 
   it("aborts when the caller's signal aborts", async () => {
@@ -102,7 +138,7 @@ describe('requestZone', () => {
       signal.addEventListener('abort', () => reject(signal.reason));
     });
     const external = new AbortController();
-    const promise = requestZone({ apiKey: 'k', body: {}, fetchFn, timeoutMs: 5000, signal: external.signal });
+    const promise = requestDecision({ apiKey: 'k', body: {}, fetchFn, timeoutMs: 5000, signal: external.signal });
     external.abort();
     await assert.rejects(promise, { name: 'JevError' });
   });
