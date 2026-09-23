@@ -1,6 +1,6 @@
 // Keyboard, pointer and hidden key-field input. Emits high-level actions and exposes the paddle controls.
 
-import { LOGICAL_HEIGHT, LOGICAL_WIDTH } from './viewport.js';
+import { COURT } from './game.js';
 
 const UP_KEYS = new Set(['arrowup', 'w']);
 const DOWN_KEYS = new Set(['arrowdown', 's']);
@@ -16,8 +16,8 @@ const ACTION_KEYS = {
 /** Converts a client (CSS pixel) position to court coordinates. */
 export function toLogicalPoint(clientX, clientY, rect) {
   return {
-    x: ((clientX - rect.left) * LOGICAL_WIDTH) / rect.width,
-    y: ((clientY - rect.top) * LOGICAL_HEIGHT) / rect.height,
+    x: ((clientX - rect.left) * COURT.width) / rect.width,
+    y: ((clientY - rect.top) * COURT.height) / rect.height,
   };
 }
 
@@ -33,7 +33,7 @@ export function createInput({
   canvas,
   keyField,
   target = window,
-  initialInputType = 'keyboard',
+  initialTouchMode = false,
   isControlAt = () => false,
 }) {
   const pressed = new Set();
@@ -42,7 +42,7 @@ export function createInput({
   const state = {
     direction: 0,
     pointerY: null,
-    lastInputType: initialInputType,
+    touchMode: initialTouchMode,
     keyFocused: false,
     keyCaretSince: 0,
   };
@@ -65,7 +65,7 @@ export function createInput({
       }
       return;
     }
-    state.lastInputType = 'keyboard';
+    state.touchMode = false;
     state.pointerY = null;
     if (UP_KEYS.has(key) || DOWN_KEYS.has(key)) {
       event.preventDefault();
@@ -118,7 +118,7 @@ export function createInput({
     // Keeps the page from stealing focus back from the key field right after a tap focused it.
     event.preventDefault();
     const point = pointFrom(event);
-    state.lastInputType = isTouch ? 'touch' : 'keyboard';
+    state.touchMode = isTouch;
     // A tap on a button must only press it: the finger stays off the paddle.
     if (isTouch && !isControlAt(point)) {
       paddlePointerId = event.pointerId;

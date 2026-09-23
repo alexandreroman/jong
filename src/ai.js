@@ -8,16 +8,16 @@ import { COURT } from './game.js';
 export const ZONE_TARGET_Y = Object.fromEntries(
   ZONES.map((zone, index) => [zone, index * ZONE_HEIGHT + ZONE_HEIGHT / 2]),
 );
-export const COURT_MIDDLE_Y = COURT.height / 2;
+const COURT_MIDDLE_Y = COURT.height / 2;
 // Hitting the ball off-center angles it: the ball must meet the upper part of the paddle to go up.
 // Budget: the ball lands up to 20 px (half a zone) from the zone center; adding this 15 px offset gives 35 px,
 // which leaves 10 px of the 45 px hit tolerance (PADDLE.height / 2 + BALL_SIZE / 2) as slack for wall-clamp
 // drift (bounceOffWalls clamps without reflecting the overshoot), rounding of the state sent to Jev, and
 // imperfect estimates.
-export const AIM_OFFSET_PX = 15;
+const AIM_OFFSET_PX = 15;
 const AIM_OFFSETS = { up: AIM_OFFSET_PX, straight: 0, down: -AIM_OFFSET_PX };
-export const BACKOFF_DELAYS_MS = [500, 1000, 2000, 4000, 8000];
-export const MIN_REQUEST_GAP_MS = 50;
+const BACKOFF_DELAYS_MS = [500, 1000, 2000, 4000, 8000];
+const MIN_REQUEST_GAP_MS = 50;
 export const LATENCY_WINDOW = 20;
 
 /** Delay before the 0-based retry `attempt`, capped at the last value. */
@@ -130,7 +130,6 @@ export function createJevController({
       return;
     }
     running = true;
-    failures = 0;
     generation += 1;
     schedule(0, generation);
   }
@@ -153,9 +152,6 @@ export function createJevController({
     },
     get targetY() {
       return targetY;
-    },
-    get running() {
-      return running;
     },
     stats,
   };

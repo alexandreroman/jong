@@ -32,7 +32,10 @@ HTML canvas. The only server is a tiny local proxy.
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) 24 or later
+- [Node.js](https://nodejs.org/) 24.2 or later
+- `make`
+- [Docker](https://www.docker.com/), only for the image
+  targets (`make image`, `make image-run`)
 - A TypeSafe AI API key, entered in the game when you play
 
 ## Getting Started
@@ -65,10 +68,10 @@ make image-run  # build and run the container image
 
 ## Configuration
 
-| Variable           | Description                   | Default                                 |
-| ------------------ | ----------------------------- | --------------------------------------- |
-| `PORT`             | Port the local server listens | `3000`                                  |
-| `TYPESAFE_API_URL` | Upstream URL for Jev requests | `https://api.typesafe.ai/v1/systemone`  |
+| Variable           | Description                      | Default                                |
+| ------------------ | -------------------------------- | -------------------------------------- |
+| `PORT`             | Port the local server listens on | `3000`                                 |
+| `TYPESAFE_API_URL` | Upstream URL for Jev requests    | `https://api.typesafe.ai/v1/systemone` |
 
 ## Docker Image
 
@@ -119,33 +122,12 @@ Each request asks two `choice` questions:
 
 The game then shifts the paddle 15 px from the zone center
 so the ball hits the side that deflects it in the chosen
-direction. The ball lands up to 20 px from the zone center,
-so an aimed hit uses 35 px of the 45 px hit tolerance; the
-remaining 10 px absorb rounding, wall-clamp drift and
-imperfect estimates. In the edge zones (`y0-40` and
-`y360-400`), the paddle cannot move its center past y 40
-or y 360, so the requested direction may not be reachable.
-While the ball moves away, the paddle goes back
+direction, while leaving slack within the hit tolerance for
+rounding and imperfect estimates. In the edge zones
+(`y0-40` and `y360-400`), the paddle cannot move its center
+past y 40 or y 360, so the requested direction may not be
+reachable. While the ball moves away, the paddle goes back
 to the middle of the court, whatever Jev answers.
-
-## Visual Effects
-
-The ball trail and the paddle recoil live in `src/fx.js`
-and never touch the physics: `game.js` only reports which
-paddle hit the ball during a step, and the renderer shifts
-the paddle drawing by the recoil offset. The effects run on
-the frame time, so they look the same at any frame rate,
-freeze while the game is paused, and reset whenever the
-ball is served again.
-
-The court background is a subtle horizontal gradient,
-black at the side edges and a very dark blue-gray
-(`#141820`) around the center line. It stays dark enough
-for the white paddles, the ball and the text to keep their
-contrast, and the dim overlays darken it like the rest of
-the court. Texts such as the round banners and the portrait
-hint sit directly on the court, with no backing box, so the
-gradient stays unbroken.
 
 ## Architecture
 
@@ -162,15 +144,14 @@ graph LR
     S -->|POST /v1/systemone| T[TypeSafe API: Jev]
 ```
 
-| Path          | Description                                    |
-| ------------- | ---------------------------------------------- |
-| `index.html`  | Page hosting the game canvas                   |
-| `src/`        | Browser game code (ES modules)                 |
-| `src/fx.js`   | Visual-only effects: ball trail, paddle recoil |
-| `server.mjs`  | Static file server and TypeSafe proxy          |
-| `test/`       | Tests run with the built-in `node --test`      |
-| `Dockerfile`  | Container image for the server and game files  |
-| `.github/`    | CI workflow: tests, multi-arch image publish   |
+| Path         | Description                                   |
+| ------------ | --------------------------------------------- |
+| `index.html` | Page hosting the game canvas                  |
+| `src/`       | Browser game code (ES modules)                |
+| `server.mjs` | Static file server and TypeSafe proxy         |
+| `test/`      | Tests run with the built-in `node --test`     |
+| `Dockerfile` | Container image for the server and game files |
+| `.github/`   | CI workflow: tests, multi-arch image publish  |
 
 ## License
 

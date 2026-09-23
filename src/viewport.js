@@ -1,10 +1,10 @@
 // Responsive canvas sizing: the game always draws in a fixed logical coordinate system,
 // while the on-screen size shrinks to fit the viewport.
 
-export const LOGICAL_WIDTH = 800;
-export const LOGICAL_HEIGHT = 400;
+import { COURT } from './game.js';
+
 // Space kept between the canvas and each viewport edge (CSS px), so the court never touches the screen edges.
-export const VIEWPORT_MARGIN = 16;
+const VIEWPORT_MARGIN = 16;
 
 /**
  * Computes the canvas size in CSS pixels: the largest 2:1 box that fits in the viewport
@@ -18,9 +18,9 @@ export function computeCanvasSize(viewportWidth, viewportHeight) {
   // The margin lives in this computation rather than in CSS, because a CSS margin would be ignored here and overflow.
   const availableWidth = Math.max(0, viewportWidth - 2 * VIEWPORT_MARGIN);
   const availableHeight = Math.max(0, viewportHeight - 2 * VIEWPORT_MARGIN);
-  const maxWidth = Math.min(LOGICAL_WIDTH, availableWidth);
-  const maxHeight = Math.min(LOGICAL_HEIGHT, availableHeight);
-  const aspectRatio = LOGICAL_WIDTH / LOGICAL_HEIGHT;
+  const maxWidth = Math.min(COURT.width, availableWidth);
+  const maxHeight = Math.min(COURT.height, availableHeight);
+  const aspectRatio = COURT.width / COURT.height;
 
   const width = Math.min(maxWidth, maxHeight * aspectRatio);
   return { width, height: width / aspectRatio };
@@ -46,7 +46,7 @@ export function setupCanvas(canvas) {
     canvas.height = Math.round(height * pixelRatio);
 
     // Resizing the backing store resets the context state, so the transform must be applied again.
-    context.setTransform(canvas.width / LOGICAL_WIDTH, 0, 0, canvas.height / LOGICAL_HEIGHT, 0, 0);
+    context.setTransform(canvas.width / COURT.width, 0, 0, canvas.height / COURT.height, 0, 0);
   }
 
   resize();

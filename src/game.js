@@ -6,13 +6,13 @@ export const PADDLE = { width: 10, height: 80, margin: 20 };
 export const BALL_SIZE = 10;
 export const ROUNDS = 3;
 export const ROUNDS_TO_WIN = 2;
-export const SERVE_SPEED = 300;
-export const MAX_SERVE_ANGLE = Math.PI / 6;
-export const SPEED_UP = 1.05;
-export const MAX_BALL_SPEED = 700;
-export const MAX_BOUNCE_ANGLE = Math.PI / 3;
-export const PADDLE_SPEED = { keyboard: 420, pointer: 600, jev: 360 };
-export const MAX_FRAME_DT = 1 / 30;
+const SERVE_SPEED = 300;
+const MAX_SERVE_ANGLE = Math.PI / 6;
+const SPEED_UP = 1.05;
+const MAX_BALL_SPEED = 700;
+const MAX_BOUNCE_ANGLE = Math.PI / 3;
+const PADDLE_SPEED = { keyboard: 420, pointer: 600, jev: 360 };
+const MAX_FRAME_DT = 1 / 30;
 export const LEFT_PADDLE_X = PADDLE.margin;
 export const RIGHT_PADDLE_X = COURT.width - PADDLE.margin - PADDLE.width;
 
@@ -49,8 +49,7 @@ export function startRound(match, random = Math.random) {
   const angle = (random() * 2 - 1) * MAX_SERVE_ANGLE;
   const direction = serveDirection(match.round);
   match.ball = {
-    x: COURT.width / 2,
-    y: COURT.height / 2,
+    ...centeredBall(),
     vx: direction * SERVE_SPEED * Math.cos(angle),
     vy: SERVE_SPEED * Math.sin(angle),
   };

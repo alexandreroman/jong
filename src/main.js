@@ -29,7 +29,7 @@ const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
 const input = createInput({
   canvas,
   keyField,
-  initialInputType: coarsePointer ? 'touch' : 'keyboard',
+  initialTouchMode: coarsePointer,
   isControlAt,
 });
 const stats = new LatencyStats();
@@ -193,7 +193,7 @@ function handleAction(action) {
       break;
     case 'match-over':
       if (tap !== null && app.timer > 0) {
-        // A stray tap while the winner is still steering must not skip the results.
+        // A finger still resting on the screen from the last point must not skip the match-over screen.
         break;
       }
       if (action.type === 'quit' || tapped(QUIT_BUTTON)) {
@@ -244,9 +244,11 @@ function updatePlaying(dt) {
     }
     return;
   }
+  const { pointerY } = input.state;
   const { scorer, hit } = step(app.match, dt, {
     humanDirection: input.state.direction,
-    humanTargetY: pointerTargetY(),
+    // The pointer is tracked in canvas coordinates, but the paddle is drawn inside the padded play field.
+    humanTargetY: pointerY === null ? null : canvasToCourtY(pointerY),
     jevTargetY: jev.targetY,
   });
   if (scorer !== null) {
@@ -260,15 +262,6 @@ function updatePlaying(dt) {
   updateFx(app.fx, dt, { ball: app.match.ball, hit });
 }
 
-// The pointer is tracked in canvas coordinates, but the paddle is drawn inside the padded play field.
-function pointerTargetY() {
-  const pointerY = input.state.pointerY;
-  if (pointerY === null) {
-    return null;
-  }
-  return canvasToCourtY(pointerY);
-}
-
 // The mouse steers the paddle during a rally, so its cursor would only hide part of the court. It comes back on every
 // other screen, and while a Jev error shows the Quit button.
 function updateCursor() {
@@ -277,7 +270,7 @@ function updateCursor() {
 }
 
 function buildView(time) {
-  const touchMode = input.state.lastInputType === 'touch';
+  const { touchMode } = input.state;
   return {
     screen: app.screen,
     match: app.match,

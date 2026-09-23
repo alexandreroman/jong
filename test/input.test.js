@@ -89,7 +89,7 @@ describe('createInput', () => {
   it('tracks a finger on the canvas and emits a tap', () => {
     pointer('pointerdown', { pointerType: 'touch', pointerId: 1, clientX: 50, clientY: 60 });
     assert.equal(input.state.pointerY, 120);
-    assert.equal(input.state.lastInputType, 'touch');
+    assert.equal(input.state.touchMode, true);
     assert.deepEqual(actions, [{ type: 'tap', x: 100, y: 120 }]);
 
     pointer('pointermove', { pointerType: 'touch', pointerId: 1, clientX: 50, clientY: 100 });
@@ -135,7 +135,7 @@ describe('createInput', () => {
   it('does not move the paddle for a mouse click', () => {
     pointer('pointerdown', { pointerType: 'mouse', pointerId: 3, clientX: 50, clientY: 60 });
     assert.equal(input.state.pointerY, null);
-    assert.equal(input.state.lastInputType, 'keyboard');
+    assert.equal(input.state.touchMode, false);
     assert.deepEqual(actions, [{ type: 'tap', x: 100, y: 120 }]);
   });
 
@@ -146,7 +146,7 @@ describe('createInput', () => {
       target: new EventTarget(), pointerType: 'mouse', pointerId: 7, clientX: 500, clientY: 250,
     }));
     assert.equal(input.state.pointerY, 500);
-    assert.equal(input.state.lastInputType, 'keyboard');
+    assert.equal(input.state.touchMode, false);
   });
 
   it('moves the paddle target with a hovering pen', () => {
@@ -177,12 +177,12 @@ describe('createInput', () => {
   });
 
   it('ignores a mouse click outside the canvas', () => {
-    const touchInput = createInput({ canvas, keyField, target: window, initialInputType: 'touch' });
+    const touchInput = createInput({ canvas, keyField, target: window, initialTouchMode: true });
     window.dispatchEvent(event('pointerdown', {
       target: new EventTarget(), pointerType: 'mouse', pointerId: 6, clientX: 500, clientY: 60,
     }));
     assert.equal(actions.length, 0);
-    assert.equal(touchInput.state.lastInputType, 'touch');
+    assert.equal(touchInput.state.touchMode, true);
   });
 
   it('reads and clears the key field', () => {
@@ -193,8 +193,8 @@ describe('createInput', () => {
   });
 
   it('starts in the given input mode', () => {
-    const touchInput = createInput({ canvas, keyField, target: window, initialInputType: 'touch' });
-    assert.equal(touchInput.state.lastInputType, 'touch');
+    const touchInput = createInput({ canvas, keyField, target: window, initialTouchMode: true });
+    assert.equal(touchInput.state.touchMode, true);
   });
 
   it('ignores keydown and keyup events with no key', () => {

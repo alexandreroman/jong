@@ -14,10 +14,10 @@ change.
 
 The game must work on mobile: the player's paddle follows a finger anywhere
 on the screen, including the page margins outside the canvas (a touch that
-starts on a control does not grab the paddle), a tap replaces Space, tapping
-the key field focuses
-a hidden `<input>` to open the soft keyboard, and portrait mode shows a
-non-blocking "Rotate your device" hint. The proxy listens on `0.0.0.0` and
+starts on a control does not grab the paddle), a tap replaces Space,
+tapping the key field focuses a hidden `<input>` to open the soft
+keyboard, and portrait mode shows a non-blocking "Rotate your device"
+hint. The proxy listens on `0.0.0.0` and
 prints its LAN URL so a phone on the same network can play.
 
 **Why:** explicit user requirements.

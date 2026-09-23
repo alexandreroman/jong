@@ -2,8 +2,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  AIM_OFFSET_PX,
-  COURT_MIDDLE_Y,
   LatencyStats,
   ZONE_TARGET_Y,
   backoffDelay,
@@ -78,13 +76,9 @@ function createHarness() {
 describe('helpers', () => {
   it('maps zones to their centers', () => {
     assert.deepEqual(Object.values(ZONE_TARGET_Y), [20, 60, 100, 140, 180, 220, 260, 300, 340, 380]);
-    assert.equal(ZONE_TARGET_Y['y0-40'], 20);
-    assert.equal(ZONE_TARGET_Y['y360-400'], 380);
-    assert.equal(COURT_MIDDLE_Y, 200);
   });
 
   it('offsets the paddle so the ball hits the side that sends it where Jev aims', () => {
-    assert.equal(AIM_OFFSET_PX, 15);
     assert.equal(paddleTargetY({ zone: 'y240-280', aim: 'straight' }, true), 260);
     assert.equal(paddleTargetY({ zone: 'y240-280', aim: 'up' }, true), 275);
     assert.equal(paddleTargetY({ zone: 'y240-280', aim: 'down' }, true), 245);
@@ -180,13 +174,24 @@ describe('createJevController', () => {
     assert.equal(h.controller.stats.samples.length, 1);
   });
 
+  it('recovers after a failure even when restarted in between', async () => {
+    const h = createHarness();
+    h.controller.start();
+    await h.fireTimer();
+    await h.fail('server');
+    h.controller.stop();
+    h.controller.start();
+    await h.fireTimer();
+    await h.answer('y0-40');
+    assert.equal(h.recoveries, 1);
+  });
+
   it('stops on an invalid key', async () => {
     const h = createHarness();
     h.controller.start();
     await h.fireTimer();
     await h.fail('auth');
     assert.equal(h.errors[0].kind, 'auth');
-    assert.equal(h.controller.running, false);
     assert.equal(h.timers.length, 0);
   });
 
@@ -206,7 +211,6 @@ describe('createJevController', () => {
     h.controller.start();
     h.controller.stop();
     assert.equal(h.timers.length, 0);
-    assert.equal(h.controller.running, false);
   });
 
   it('aborts the in-flight request on stop', async () => {
