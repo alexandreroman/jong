@@ -1,14 +1,6 @@
-# Only package.json, server.mjs, index.html, LICENSE and src/ end up in the image.
-.git
-.github
-.claude
-.env
-.casper.json
-.DS_Store
-*.md
-docs/
-node_modules/
-test/
-Dockerfile
-.dockerignore
-Makefile
+# Allow-list: only the runtime files end up in the build context.
+*
+!server.mjs
+!index.html
+!LICENSE
+!src/

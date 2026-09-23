@@ -15,10 +15,6 @@ const UPSTREAM_TIMEOUT_MS = 10_000;
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.ico': 'image/x-icon',
 };
 
 /**
@@ -201,34 +197,16 @@ function sendText(res, status, text) {
 }
 
 function listLanAddresses() {
-  const addresses = [];
-  for (const networkInterface of Object.values(os.networkInterfaces())) {
-    for (const address of networkInterface ?? []) {
-      if (address.family === 'IPv4' && !address.internal) {
-        addresses.push(address.address);
-      }
-    }
-  }
-  return addresses;
+  return Object.values(os.networkInterfaces())
+    .flat()
+    .filter((address) => address.family === 'IPv4' && !address.internal)
+    .map((address) => address.address);
 }
 
-function parsePort(value) {
-  if (value === undefined || value === '') {
-    return DEFAULT_PORT;
-  }
-  const port = Number(value);
-  if (!Number.isInteger(port) || port < 0 || port > 65535) {
-    throw new Error(`Invalid PORT value: "${value}"`);
-  }
-  return port;
-}
-
-const isMainModule = import.meta.main ?? path.resolve(process.argv[1] ?? '') === import.meta.filename;
-
-if (isMainModule) {
-  const port = parsePort(process.env.PORT);
-  const upstreamUrl = process.env.TYPESAFE_API_URL ?? DEFAULT_UPSTREAM_URL;
-  const server = createServer({ upstreamUrl });
+if (import.meta.main) {
+  // server.listen rejects an invalid port with a clear error, so PORT needs no validation here.
+  const port = Number(process.env.PORT || DEFAULT_PORT);
+  const server = createServer({ upstreamUrl: process.env.TYPESAFE_API_URL });
 
   server.listen(port, '0.0.0.0', () => {
     console.log('Jong is running:');

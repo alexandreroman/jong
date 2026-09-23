@@ -8,11 +8,10 @@ RUN apk add --no-cache tini \
 
 WORKDIR /app
 
-COPY package.json server.mjs index.html LICENSE ./
+COPY server.mjs index.html LICENSE ./
 COPY src/ ./src/
 
-ENV NODE_ENV=production \
-    PORT=3000
+ENV PORT=3000
 
 USER app:app
 EXPOSE 3000

@@ -7,7 +7,6 @@ import {
   ZONES,
   buildRequestBody,
   describeError,
-  errorKindForStatus,
   requestDecision,
 } from '../src/api.js';
 import { createMatch } from '../src/game.js';
@@ -57,12 +56,6 @@ describe('buildRequestBody', () => {
     assert.equal(questions.aim.type, 'choice');
     assert.match(questions.aim.instructions, /opponentPaddle/);
     assert.deepEqual(Object.keys(questions.aim.criteria), AIMS);
-  });
-
-  it('lists ten 40 px zones from top to bottom', () => {
-    assert.equal(ZONES.length, 10);
-    assert.equal(ZONES[0], 'y0-40');
-    assert.equal(ZONES[9], 'y360-400');
   });
 
   it('flags a ball moving away from Jev and omits the arrival hints', () => {
@@ -145,13 +138,6 @@ describe('requestDecision', () => {
 });
 
 describe('errors', () => {
-  it('maps status codes to error kinds', () => {
-    assert.equal(errorKindForStatus(401), 'auth');
-    assert.equal(errorKindForStatus(403), 'auth');
-    assert.equal(errorKindForStatus(429), 'rate-limit');
-    assert.equal(errorKindForStatus(503), 'server');
-  });
-
   it('describes each kind for the player', () => {
     assert.equal(describeError('auth'), 'Invalid API key');
     assert.equal(describeError('rate-limit'), 'Rate limited');

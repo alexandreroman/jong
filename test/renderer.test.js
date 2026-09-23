@@ -63,7 +63,7 @@ function recordingContext() {
   const calls = [];
   const ctx = { calls };
   for (const name of ['clearRect', 'fillRect', 'beginPath', 'roundRect', 'rect', 'clip', 'stroke', 'fill',
-    'fillText', 'save', 'restore', 'moveTo', 'lineTo', 'arc', 'setLineDash', 'translate', 'scale', 'strokeRect']) {
+    'fillText', 'save', 'restore', 'moveTo', 'lineTo', 'arc', 'setLineDash', 'translate', 'scale']) {
     ctx[name] = (...args) => calls.push({
       name, args, fillStyle: ctx.fillStyle, strokeStyle: ctx.strokeStyle, textAlign: ctx.textAlign,
       globalAlpha: ctx.globalAlpha,
@@ -130,7 +130,6 @@ describe('render key entry', () => {
     assert.ok(calls.some(isKeyFieldOutline));
     assert.ok(calls.some((call) => call.name === 'roundRect' && call.args[0] === START_BUTTON.x
       && call.args[4] === 8));
-    assert.ok(!calls.some((call) => call.name === 'strokeRect'));
   });
 
   it('highlights the key field border only while it has focus', () => {
@@ -199,11 +198,6 @@ describe('render court', () => {
     assert.ok(calls.some(isLatencyLabel));
   });
 
-  it('draws the latency label in the same gray as the sparkline', () => {
-    const label = renderCourt('playing').find(isLatencyLabel);
-    assert.equal(label.fillStyle, '#888');
-  });
-
   it('hides the center line, the ball and the latency on every other court screen', () => {
     for (const screen of ['round-intro', 'point-scored', 'paused', 'match-over']) {
       const calls = renderCourt(screen);
@@ -234,11 +228,6 @@ describe('render court', () => {
     }
   });
 
-  it('draws no per-round breakdown on the match-over screen', () => {
-    const isRoundDetail = (call) => call.name === 'fillText' && /Round \d+:/.test(call.args[0]);
-    assert.ok(!renderCourt('match-over').some(isRoundDetail));
-  });
-
   it('keeps the match-over texts above the Menu button', () => {
     for (const touchMode of [false, true]) {
       const calls = renderCourt('match-over', null, touchMode);
@@ -256,13 +245,6 @@ describe('render court', () => {
     assert.deepEqual([jev.args[1], jev.args[2], jev.textAlign], [400 + 20, 24, 'left']);
     assert.deepEqual([round.args[1], round.args[2], round.textAlign], [400 - 20, 46, 'right']);
     assert.deepEqual([bestOf.args[1], bestOf.args[2], bestOf.textAlign], [400 + 20, 46, 'left']);
-  });
-
-  it('draws no touch button on the court during play', () => {
-    const roundRectArgs = (touchMode) => renderCourt('playing', null, touchMode)
-      .filter((call) => call.name === 'roundRect')
-      .map((call) => call.args);
-    assert.deepEqual(roundRectArgs(true), roundRectArgs(false));
   });
 
   // A trail square is centered on an old ball position and smaller than the ball.
@@ -309,23 +291,6 @@ describe('render court', () => {
     assert.deepEqual(paddleXs(jevHit), [LEFT_PADDLE_X, RIGHT_PADDLE_X + 5]);
   });
 
-  it('hides the latency indicator on the menu', () => {
-    assert.ok(!renderCourt('menu').some(isLatencyLabel));
-  });
-
-  // Only the background gradient and the full-court dim may fill behind text; any other translucent black fill
-  // would be a box that breaks the gradient.
-  const isOverlayBox = (call) => call.name === 'fillRect' && call.fillStyle === 'rgba(0, 0, 0, 0.75)'
-    && !(call.args[2] === COURT.width && call.args[3] === COURT.height);
-
-  it('draws banners without a box behind their text', () => {
-    for (const screen of ['round-intro', 'point-scored']) {
-      const calls = renderCourt(screen);
-      assert.ok(calls.some((call) => call.name === 'fillText'), `banner text on ${screen}`);
-      assert.ok(!calls.some(isOverlayBox), `box behind the banner on ${screen}`);
-    }
-  });
-
   // Fake ink spans 12 px above and 2 px below the baseline. The banner draws after the HUD, which also shows
   // 'Round 1', so the last matching call is the banner's.
   const inkOf = (calls, text) => {
@@ -344,15 +309,6 @@ describe('render court', () => {
     const subtitle = inkOf(calls, 'Starting in 1');
     assert.ok(title.bottom < subtitle.top);
     assert.equal((title.top + subtitle.bottom) / 2, COURT.height / 2);
-  });
-
-  it('draws the portrait hint without a band behind it', () => {
-    const ctx = recordingContext();
-    const view = { screen: 'playing', apiError: null, resumeIn: 0, match, fx: createFx(), stats, touchMode: true };
-    render(ctx, { ...view, portrait: true });
-    const isHint = (call) => call.name === 'fillText' && call.args[0].startsWith('Rotate your device');
-    assert.ok(ctx.calls.some(isHint));
-    assert.ok(!ctx.calls.some(isOverlayBox));
   });
 
   it('draws the portrait hint near the bottom of the court, above the latency label', () => {

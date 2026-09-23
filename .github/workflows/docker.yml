@@ -46,7 +46,6 @@ jobs:
       contents: read
       packages: write
     strategy:
-      fail-fast: true
       matrix:
         include:
           - runner: ubuntu-24.04
@@ -141,7 +140,7 @@ jobs:
         with:
           images: ${{ env.IMAGE }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
             type=sha,format=long
 
       - name: Create and push the manifest list
@@ -158,8 +157,3 @@ jobs:
           done
 
           docker buildx imagetools create "${tag_args[@]}" "${image_refs[@]}"
-
-      - name: Inspect the image
-        run: docker buildx imagetools inspect "$IMAGE:$VERSION"
-        env:
-          VERSION: ${{ steps.meta.outputs.version }}

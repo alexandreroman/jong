@@ -1,7 +1,7 @@
 # Jong
 
 Browser Pong game where the opponent paddle is driven by
-TypeSafe AI's Jev model, played in 3 rounds.
+TypeSafe AI's Jev model, best of 3 rounds.
 
 See [README.md](README.md) for full documentation.
 
@@ -42,9 +42,9 @@ make image   # build the container image
 - `.github/workflows/docker.yml` — CI: `make check`, then
   multi-arch image built on native runners and published
   to `ghcr.io/alexandreroman/jong` from `main`
-- `.casper.json` — Casper workspace config: `setup` runs
-  `make worktree-init` (per-worktree `PORT` in `.env`), `run`
-  runs `make app-up` (lists the URLs in the info panel)
+- `.casper.json` — Casper workspace config: its scripts run
+  the matching `make` targets (`setup` runs `worktree-init`,
+  which gives each worktree its own `PORT` in `.env`)
 
 ## Agents
 

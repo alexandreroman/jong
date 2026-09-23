@@ -17,4 +17,5 @@ each paddle hit, up to a speed cap. The in-game HUD shows
 **Why:** rules chosen by the user.
 
 **How to apply:** match state logic in the game module must follow these
-rules exactly; end screens show the per-round breakdown of played rounds.
+rules exactly; the match-over screen shows the winner and the final
+score.

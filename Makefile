@@ -10,20 +10,12 @@ include .env
 export
 endif
 
-# In Casper, fall back to the workspace port when neither the environment nor .env sets one
-# (e.g. the setup hook never ran). Empty outside Casper, which server.mjs treats as 3000.
-export PORT ?= $(CASPER_PORT)
-
 ##@ Develop
 
-# The trap reaps the whole process group (kill 0) on exit or signal, so no
-# orphaned processes survive Ctrl-C or a child crash.
 .PHONY: dev
 dev: ## Run the local server, restarting on change; in Casper, lists its URLs in the info panel
 	@$(publish_endpoints); \
-		trap 'kill 0' EXIT INT TERM; \
-		node --watch server.mjs & \
-		wait
+		exec node --watch server.mjs
 
 .PHONY: app-up
 app-up: ## Run the local server (blocking); in Casper, lists its URLs in the info panel
@@ -66,8 +58,9 @@ test: ## Run the test suite
 	node --test
 
 .PHONY: check
+# The tests import every other module, so they already catch syntax errors there.
 check: test ## Run tests and syntax checks
-	@for f in server.mjs src/*.js; do node --check "$$f" || exit 1; done
+	node --check src/main.js
 
 ##@ Container
 

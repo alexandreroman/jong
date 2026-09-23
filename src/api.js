@@ -2,9 +2,9 @@
 
 import { COURT, LEFT_PADDLE_X, PADDLE, RIGHT_PADDLE_X, predictArrivalAtJev } from './game.js';
 
-export const API_PATH = '/api/systemone';
-export const MODEL = 'jev-latest';
-export const REQUEST_TIMEOUT_MS = 2000;
+const API_PATH = '/api/systemone';
+const MODEL = 'jev-latest';
+const REQUEST_TIMEOUT_MS = 2000;
 // Ten 40 px bands, ordered from the top of the court (y 0) to the bottom (y 400).
 export const ZONES = [
   'y0-40', 'y40-80', 'y80-120', 'y120-160', 'y160-200',
@@ -64,7 +64,7 @@ export class JevError extends Error {
   }
 }
 
-export function errorKindForStatus(status) {
+function errorKindForStatus(status) {
   if (status === 401 || status === 403) {
     return 'auth';
   }
@@ -111,53 +111,36 @@ export async function requestDecision({
   timeoutMs = REQUEST_TIMEOUT_MS,
   signal,
 }) {
-  const controller = new AbortController();
-  let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
-  }, timeoutMs);
-  const onExternalAbort = () => controller.abort();
-  if (signal) {
-    if (signal.aborted) {
-      onExternalAbort();
-    } else {
-      signal.addEventListener('abort', onExternalAbort);
-    }
-  }
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
 
+  let response;
   try {
-    let response;
-    try {
-      response = await fetchFn(API_PATH, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-    } catch {
-      throw new JevError(timedOut ? 'timeout' : 'unreachable');
-    }
-
-    if (!response.ok) {
-      throw new JevError(errorKindForStatus(response.status));
-    }
-
-    let payload;
-    try {
-      payload = await response.json();
-    } catch {
-      throw new JevError(timedOut ? 'timeout' : 'invalid-answer');
-    }
-
-    const zone = payload?.answers?.target?.choice;
-    const aim = payload?.answers?.aim?.choice;
-    if (!ZONES.includes(zone) || !AIMS.includes(aim)) {
-      throw new JevError('invalid-answer');
-    }
-    return { zone, aim };
-  } finally {
-    clearTimeout(timer);
-    signal?.removeEventListener('abort', onExternalAbort);
+    response = await fetchFn(API_PATH, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: combined,
+    });
+  } catch {
+    throw new JevError(timeout.aborted ? 'timeout' : 'unreachable');
   }
+
+  if (!response.ok) {
+    throw new JevError(errorKindForStatus(response.status));
+  }
+
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new JevError(timeout.aborted ? 'timeout' : 'invalid-answer');
+  }
+
+  const zone = payload?.answers?.target?.choice;
+  const aim = payload?.answers?.aim?.choice;
+  if (!ZONES.includes(zone) || !AIMS.includes(aim)) {
+    throw new JevError('invalid-answer');
+  }
+  return { zone, aim };
 }
