@@ -188,6 +188,15 @@ describe('createJevController', () => {
     assert.equal(h.controller.running, false);
   });
 
+  it('aborts the in-flight request on stop', async () => {
+    const h = createHarness();
+    h.controller.start();
+    await h.fireTimer();
+    assert.equal(h.calls[0].args.signal.aborted, false);
+    h.controller.stop();
+    assert.equal(h.calls[0].args.signal.aborted, true);
+  });
+
   it('resets the target to the middle', async () => {
     const h = createHarness();
     h.controller.start();

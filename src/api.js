@@ -72,6 +72,7 @@ export async function requestZone({
   // Wrapped so the browser's fetch is never called with a foreign `this`.
   fetchFn = (...args) => globalThis.fetch(...args),
   timeoutMs = REQUEST_TIMEOUT_MS,
+  signal,
 }) {
   const controller = new AbortController();
   let timedOut = false;
@@ -79,6 +80,14 @@ export async function requestZone({
     timedOut = true;
     controller.abort();
   }, timeoutMs);
+  const onExternalAbort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) {
+      onExternalAbort();
+    } else {
+      signal.addEventListener('abort', onExternalAbort);
+    }
+  }
 
   try {
     let response;
@@ -111,5 +120,6 @@ export async function requestZone({
     return zone;
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener('abort', onExternalAbort);
   }
 }

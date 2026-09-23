@@ -96,6 +96,16 @@ describe('requestZone', () => {
     });
     await assert.rejects(requestZone({ apiKey: 'k', body: {}, fetchFn, timeoutMs: 10 }), { kind: 'timeout' });
   });
+
+  it("aborts when the caller's signal aborts", async () => {
+    const fetchFn = (url, { signal }) => new Promise((resolve, reject) => {
+      signal.addEventListener('abort', () => reject(signal.reason));
+    });
+    const external = new AbortController();
+    const promise = requestZone({ apiKey: 'k', body: {}, fetchFn, timeoutMs: 5000, signal: external.signal });
+    external.abort();
+    await assert.rejects(promise, { name: 'JevError' });
+  });
 });
 
 describe('errors', () => {

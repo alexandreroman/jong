@@ -63,6 +63,7 @@ export function createJevController({
   let timer = null;
   let failures = 0;
   let targetY = ZONE_TARGET_Y.middle;
+  let abortController = null;
 
   function schedule(delayMs, runGeneration) {
     timer = setTimer(() => {
@@ -73,8 +74,9 @@ export function createJevController({
 
   async function tick(runGeneration) {
     const startedAt = now();
+    abortController = new AbortController();
     try {
-      const zone = await requestZoneFn({ apiKey, body: getBody() });
+      const zone = await requestZoneFn({ apiKey, body: getBody(), signal: abortController.signal });
       if (runGeneration !== generation) {
         return;
       }
@@ -117,6 +119,7 @@ export function createJevController({
       clearTimer(timer);
       timer = null;
     }
+    abortController?.abort();
   }
 
   return {
