@@ -99,6 +99,15 @@ the frame time, so they look the same at any frame rate,
 freeze while the game is paused, and reset whenever the
 ball is served again.
 
+The court background is a subtle horizontal gradient,
+black at the side edges and a very dark blue-gray
+(`#141820`) around the center line. It stays dark enough
+for the white paddles, the ball and the text to keep their
+contrast, and the dim overlays darken it like the rest of
+the court. Texts such as the round banners and the portrait
+hint sit directly on the court, with no backing box, so the
+gradient stays unbroken.
+
 ## Architecture
 
 The TypeSafe API rejects cross-origin requests from

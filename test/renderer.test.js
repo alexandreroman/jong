@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { createFx, updateFx } from '../src/fx.js';
-import { BALL_SIZE, LEFT_PADDLE_X, RIGHT_PADDLE_X } from '../src/game.js';
+import { BALL_SIZE, COURT, LEFT_PADDLE_X, RIGHT_PADDLE_X } from '../src/game.js';
 import {
   KEY_FIELD, PAUSE_BUTTON, QUIT_BUTTON, START_BUTTON, canvasToCourtY, caretVisible, hitTest, render,
 } from '../src/renderer.js';
@@ -58,7 +58,7 @@ describe('caretVisible', () => {
 });
 
 // Records every drawing call and the style in effect, and fakes text metrics: 10 px per character, ink 12 px
-// above and 2 px below the baseline.
+// above and 2 px below the baseline. Linear gradients are plain objects that keep their geometry and color stops.
 function recordingContext() {
   const calls = [];
   const ctx = { calls };
@@ -69,6 +69,11 @@ function recordingContext() {
       globalAlpha: ctx.globalAlpha,
     });
   }
+  ctx.createLinearGradient = (...args) => {
+    const gradient = { type: 'linear', args, stops: [] };
+    gradient.addColorStop = (offset, color) => gradient.stops.push({ offset, color });
+    return gradient;
+  };
   ctx.measureText = (text) => ({ width: text.length * 10, actualBoundingBoxAscent: 12, actualBoundingBoxDescent: 2 });
   return ctx;
 }
@@ -92,6 +97,30 @@ function renderKeyEntry(overrides = {}) {
 const isKeyFieldOutline = (call) => call.name === 'roundRect' && call.args[0] === KEY_FIELD.x
   && call.args[1] === KEY_FIELD.y;
 const isCaret = (call) => call.name === 'fillRect' && call.args[2] === 2 && call.args[3] === 20;
+
+// Relative luminance of a '#rgb' or '#rrggbb' color, enough to compare how bright two background stops are.
+function luminance(color) {
+  const digits = color.slice(1);
+  const fullDigits = digits.length === 3 ? [...digits].map((digit) => digit + digit).join('') : digits;
+  const [r, g, b] = [0, 2, 4].map((start) => parseInt(fullDigits.slice(start, start + 2), 16));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+describe('render background', () => {
+  const isFullCourtFill = (call) => call.name === 'fillRect' && call.args[0] === 0 && call.args[1] === 0
+    && call.args[2] === COURT.width && call.args[3] === COURT.height;
+
+  it('fills the court with a horizontal gradient that is brighter in the middle than at the edges', () => {
+    const background = renderKeyEntry().find(isFullCourtFill);
+    const gradient = background.fillStyle;
+    assert.equal(gradient.type, 'linear');
+    assert.deepEqual(gradient.args, [0, 0, COURT.width, 0]);
+    assert.deepEqual(gradient.stops.map((stop) => stop.offset), [0, 0.5, 1]);
+    const [left, center, right] = gradient.stops.map((stop) => luminance(stop.color));
+    assert.equal(left, right);
+    assert.ok(center > left);
+  });
+});
 
 describe('render key entry', () => {
   const fieldCenterY = KEY_FIELD.y + KEY_FIELD.height / 2;
@@ -269,5 +298,27 @@ describe('render court', () => {
 
   it('hides the latency indicator on the menu', () => {
     assert.ok(!renderCourt('menu').some(isLatencyLabel));
+  });
+
+  // Only the background gradient and the full-court dim may fill behind text; any other translucent black fill
+  // would be a box that breaks the gradient.
+  const isOverlayBox = (call) => call.name === 'fillRect' && call.fillStyle === 'rgba(0, 0, 0, 0.75)'
+    && !(call.args[2] === COURT.width && call.args[3] === COURT.height);
+
+  it('draws banners without a box behind their text', () => {
+    for (const screen of ['round-intro', 'point-scored']) {
+      const calls = renderCourt(screen);
+      assert.ok(calls.some((call) => call.name === 'fillText'), `banner text on ${screen}`);
+      assert.ok(!calls.some(isOverlayBox), `box behind the banner on ${screen}`);
+    }
+  });
+
+  it('draws the portrait hint without a band behind it', () => {
+    const ctx = recordingContext();
+    const view = { screen: 'playing', apiError: null, resumeIn: 0, match, fx: createFx(), stats, touchMode: true };
+    render(ctx, { ...view, portrait: true });
+    const isHint = (call) => call.name === 'fillText' && call.args[0].startsWith('Rotate your device');
+    assert.ok(ctx.calls.some(isHint));
+    assert.ok(!ctx.calls.some(isOverlayBox));
   });
 });

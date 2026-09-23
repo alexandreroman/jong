@@ -5,7 +5,10 @@ import { TRAIL_DURATION_S, recoilOffset } from './fx.js';
 import { BALL_SIZE, COURT, LEFT_PADDLE_X, PADDLE, RIGHT_PADDLE_X, ROUNDS, matchWinner } from './game.js';
 
 const FOREGROUND = '#fff';
-const BACKGROUND = '#000';
+// The court background is a horizontal gradient, faintly lit around the center line and dark at the side edges.
+// Both colors stay very dark so the white paddles, the ball, the text and the dim overlays keep their contrast.
+const BACKGROUND_EDGE = '#000';
+const BACKGROUND_CENTER = '#141820';
 const DIM = '#888';
 const ERROR = '#f55';
 const OVERLAY = 'rgba(0, 0, 0, 0.75)';
@@ -82,8 +85,7 @@ export function render(ctx, view) {
 }
 
 function drawFrame(ctx, view) {
-  ctx.fillStyle = BACKGROUND;
-  ctx.fillRect(0, 0, COURT.width, COURT.height);
+  drawBackground(ctx);
   // Drawn before any content so dim overlays darken it the same way they darken the rest of the court.
   drawCourtBorder(ctx);
 
@@ -107,12 +109,19 @@ function drawFrame(ctx, view) {
       drawPlayOverlay(ctx, view);
   }
 
+  // Texts sit directly on the court, without a backing box, so the background gradient stays unbroken.
   if (view.portrait) {
-    ctx.fillStyle = OVERLAY;
-    // Inset so the band stays inside the border instead of hiding its sides.
-    ctx.fillRect(BORDER_WIDTH, 62, COURT.width - 2 * BORDER_WIDTH, 36);
     drawText(ctx, 'Rotate your device for a better experience', CENTER_X, 80, { size: 24, color: FOREGROUND });
   }
+}
+
+function drawBackground(ctx) {
+  const gradient = ctx.createLinearGradient(0, 0, COURT.width, 0);
+  gradient.addColorStop(0, BACKGROUND_EDGE);
+  gradient.addColorStop(0.5, BACKGROUND_CENTER);
+  gradient.addColorStop(1, BACKGROUND_EDGE);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, COURT.width, COURT.height);
 }
 
 function drawText(ctx, text, x, y, { size = 16, color = FOREGROUND, align = 'center', bold = false } = {}) {
@@ -320,9 +329,8 @@ function drawSparkline(ctx, samples, box) {
   ctx.stroke();
 }
 
+// No backing box: drawCourt already hides the center line and the ball on banner screens, so nothing moves behind.
 function drawBanner(ctx, title, subtitle) {
-  ctx.fillStyle = OVERLAY;
-  ctx.fillRect(200, 140, 400, 110);
   drawText(ctx, title, CENTER_X, 180, { size: 40, bold: true });
   if (subtitle) {
     drawText(ctx, subtitle, CENTER_X, 225);
