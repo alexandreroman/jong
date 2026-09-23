@@ -151,6 +151,8 @@ function drawCourt(ctx, { match, stats, touchMode }) {
   ctx.stroke();
   ctx.setLineDash([]);
 
+  // Drawn before the field so the Jev paddle passes over the indicator instead of disappearing beneath it.
+  drawLatency(ctx, stats);
   drawField(ctx, match);
 
   drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 24, { size: 20 });
@@ -158,7 +160,6 @@ function drawCourt(ctx, { match, stats, touchMode }) {
   if (touchMode) {
     drawButton(ctx, PAUSE_BUTTON, 'II');
   }
-  drawLatency(ctx, stats);
 }
 
 // Paddles and ball live in court coordinates; the transform maps them into the padded play field.
