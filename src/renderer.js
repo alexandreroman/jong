@@ -191,13 +191,13 @@ function drawCourt(ctx, { screen, apiError, match, stats, touchMode }) {
   }
   drawField(ctx, match, { showBall: active });
 
-  // The match-over screen already shows the final score and every round's result.
-  const showScore = screen !== 'match-over';
-  if (showScore) {
+  // The match-over screen already shows the final score and every round's result, and a finished match can't be paused.
+  const showHud = screen !== 'match-over';
+  if (showHud) {
     drawText(ctx, `You ${match.score.human} — ${match.score.jev} Jev`, CENTER_X, 24, { size: 20 });
     drawText(ctx, `Round ${match.round}/${ROUNDS}`, CENTER_X, 46, { size: 14, color: DIM });
   }
-  if (touchMode) {
+  if (showHud && touchMode) {
     drawButton(ctx, PAUSE_BUTTON, 'II');
   }
 }

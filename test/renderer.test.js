@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import { BALL_SIZE } from '../src/game.js';
 import {
-  KEY_FIELD, QUIT_BUTTON, START_BUTTON, canvasToCourtY, caretVisible, hitTest, render,
+  KEY_FIELD, PAUSE_BUTTON, QUIT_BUTTON, START_BUTTON, canvasToCourtY, caretVisible, hitTest, render,
 } from '../src/renderer.js';
 
 describe('hitTest', () => {
@@ -147,10 +147,10 @@ describe('render court', () => {
   };
   const stats = { last: null, average: 0, samples: [] };
 
-  function renderCourt(screen, apiError = null) {
+  function renderCourt(screen, apiError = null, touchMode = false) {
     const ctx = recordingContext();
     const view = { screen, apiError, resumeIn: 0, match, stats, timer: 1, lastScorer: 'human' };
-    render(ctx, { ...view, touchMode: false, portrait: false });
+    render(ctx, { ...view, touchMode, portrait: false });
     return ctx.calls;
   }
 
@@ -198,6 +198,13 @@ describe('render court', () => {
     const matchOver = renderCourt('match-over');
     assert.ok(!matchOver.some(isScoreHud));
     assert.ok(!matchOver.some(isRoundHud));
+  });
+
+  it('draws the touch pause button during play but not on the match-over screen', () => {
+    const isPauseButton = (call) => call.name === 'roundRect' && call.args[0] === PAUSE_BUTTON.x
+      && call.args[1] === PAUSE_BUTTON.y;
+    assert.ok(renderCourt('playing', null, true).some(isPauseButton));
+    assert.ok(!renderCourt('match-over', null, true).some(isPauseButton));
   });
 
   it('hides the latency indicator on the menu', () => {
