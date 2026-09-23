@@ -35,12 +35,11 @@ define publish_endpoints
 if [ -n "$$CASPER_WORKSPACE_ID" ] && command -v casper >/dev/null 2>&1; then \
 	port="$(or $(PORT),3000)"; \
 	doc="$$(mktemp /tmp/casper-info.XXXXXX)" && mv "$$doc" "$$doc.md" && doc="$$doc.md" && { \
-		printf '# Jong — workspace\n\n## Endpoints\n\n| Endpoint | URL |\n| --- | --- |\n'; \
+		printf '# Jong\n\n## Endpoints\n\n| Endpoint | URL |\n| --- | --- |\n'; \
 		printf '| Local | <http://localhost:%s/> |\n' "$$port"; \
 		for ip in $$(node -e "$$LAN_IPS_JS" 2>/dev/null); do \
 			printf '| Network (phone) | <http://%s:%s/> |\n' "$$ip" "$$port"; \
 		done; \
-		printf '\nRestart with `casper run`.\n'; \
 	} > "$$doc" && casper info set --file "$$doc" >/dev/null 2>&1; \
 	rm -f "$$doc"; \
 fi; true
