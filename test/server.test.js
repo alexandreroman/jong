@@ -129,8 +129,57 @@ describe('server', () => {
 
       assert.equal(response.status, 200);
       assert.match(response.headers.get('content-type'), /^text\/html/);
-      assert.equal(response.headers.get('cache-control'), 'no-store');
+      assert.equal(response.headers.get('cache-control'), 'no-cache');
+      assert.match(response.headers.get('etag'), /^W\/"[0-9a-f]+-[0-9a-f]+"$/);
       assert.match(await response.text(), /<canvas id="game"/);
+    });
+
+    it('answers 304 with an empty body when If-None-Match matches the ETag', async () => {
+      const first = await fetch(`${proxyUrl}/src/main.js`);
+      await first.text();
+      const etag = first.headers.get('etag');
+
+      const response = await fetch(`${proxyUrl}/src/main.js`, { headers: { 'If-None-Match': etag } });
+
+      assert.equal(response.status, 304);
+      assert.equal(response.headers.get('etag'), etag);
+      assert.equal(response.headers.get('cache-control'), 'no-cache');
+      assert.equal(await response.text(), '');
+    });
+
+    it('matches an ETag within a list of candidates', async () => {
+      const first = await fetch(`${proxyUrl}/`);
+      await first.text();
+      const etag = first.headers.get('etag');
+
+      const response = await fetch(`${proxyUrl}/`, { headers: { 'If-None-Match': `"other", ${etag}` } });
+      await response.text();
+
+      assert.equal(response.status, 304);
+    });
+
+    it('serves the file again when If-None-Match does not match', async () => {
+      const response = await fetch(`${proxyUrl}/`, { headers: { 'If-None-Match': 'W/"0-0"' } });
+
+      assert.equal(response.status, 200);
+      assert.match(await response.text(), /<canvas id="game"/);
+    });
+
+    it('answers 304 when If-None-Match is *', async () => {
+      const response = await fetch(`${proxyUrl}/`, { headers: { 'If-None-Match': '*' } });
+      await response.text();
+
+      assert.equal(response.status, 304);
+    });
+
+    it('answers 304 to HEAD when If-None-Match matches the ETag', async () => {
+      const first = await fetch(`${proxyUrl}/`, { method: 'HEAD' });
+      const etag = first.headers.get('etag');
+
+      const response = await fetch(`${proxyUrl}/`, { method: 'HEAD', headers: { 'If-None-Match': etag } });
+
+      assert.equal(response.status, 304);
+      assert.equal(response.headers.get('etag'), etag);
     });
 
     it('serves JavaScript files under src/', async () => {

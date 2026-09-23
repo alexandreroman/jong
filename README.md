@@ -138,7 +138,9 @@ The TypeSafe API rejects cross-origin requests from
 browsers, so `server.mjs` serves the game and relays Jev
 calls from the same origin. It forwards only the request
 body and the `Authorization` header, and holds no game
-logic.
+logic. Static files are sent with `Cache-Control: no-cache`
+and an `ETag`, so browsers revalidate them and get a `304`
+when unchanged; proxy and error responses use `no-store`.
 
 ```mermaid
 graph LR

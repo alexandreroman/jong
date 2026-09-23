@@ -2,7 +2,7 @@
 // whose API rejects browser CORS requests. It holds no game logic and stores nothing.
 
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -139,9 +139,9 @@ async function handleStatic(req, res, rootDir, pathname) {
     return;
   }
 
-  let content;
+  let fileStats;
   try {
-    content = await readFile(filePath);
+    fileStats = await stat(filePath);
   } catch (error) {
     if (error.code === 'ENOENT' || error.code === 'EISDIR') {
       sendText(res, 404, 'Not found');
@@ -149,10 +149,50 @@ async function handleStatic(req, res, rootDir, pathname) {
     }
     throw error;
   }
+  if (!fileStats.isFile()) {
+    sendText(res, 404, 'Not found');
+    return;
+  }
 
+  // The modules are unhashed and loaded together by index.html, so a long max-age could mix old and new files
+  // after a deploy. "no-cache" makes browsers revalidate every time, which costs a 304 without reading the file.
+  const etag = computeEtag(fileStats);
+  const cacheHeaders = { 'Cache-Control': 'no-cache', ETag: etag };
+  if (matchesIfNoneMatch(req.headers['if-none-match'], etag)) {
+    res.writeHead(304, cacheHeaders);
+    res.end();
+    return;
+  }
+
+  const content = await readFile(filePath);
   const contentType = CONTENT_TYPES[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
-  res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-store' });
+  res.writeHead(200, { 'Content-Type': contentType, ...cacheHeaders });
   res.end(content);
+}
+
+/**
+ * Builds a weak ETag from the file size and modification time, so it can be checked without reading the file.
+ */
+function computeEtag(fileStats) {
+  return `W/"${fileStats.size.toString(16)}-${Math.floor(fileStats.mtimeMs).toString(16)}"`;
+}
+
+/**
+ * Tells whether an `If-None-Match` header matches `etag`, using the weak comparison required by RFC 9110.
+ */
+function matchesIfNoneMatch(ifNoneMatch, etag) {
+  if (!ifNoneMatch) {
+    return false;
+  }
+  if (ifNoneMatch.trim() === '*') {
+    return true;
+  }
+  const opaqueTag = stripWeakPrefix(etag);
+  return ifNoneMatch.split(',').some((candidate) => stripWeakPrefix(candidate.trim()) === opaqueTag);
+}
+
+function stripWeakPrefix(tag) {
+  return tag.startsWith('W/') ? tag.slice(2) : tag;
 }
 
 /**
