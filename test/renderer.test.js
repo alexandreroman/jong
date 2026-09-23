@@ -152,7 +152,7 @@ describe('render key entry', () => {
   it('draws the caret right after the placeholder when the field is empty', () => {
     const calls = renderKeyEntry({ keyFocused: true, time: 100 });
     const caret = calls.find(isCaret);
-    const placeholderWidth = 'Type or paste your key'.length * 10;
+    const placeholderWidth = 'Paste your key'.length * 10;
     assert.equal(caret.args[0], 400 + placeholderWidth / 2 + 3);
   });
 

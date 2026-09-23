@@ -185,7 +185,7 @@ function drawKeyEntry(ctx, view) {
 
 function drawKeyField(ctx, { keyLength, keyFocused, keyCaretSince, time, touchMode }) {
   strokeControl(ctx, KEY_FIELD, keyFocused ? FOREGROUND : DIM);
-  const placeholder = touchMode ? 'Tap here to type' : 'Type or paste your key';
+  const placeholder = touchMode ? 'Tap to paste your key' : 'Paste your key';
   const hasKey = keyLength > 0;
   const fieldText = hasKey ? '•'.repeat(Math.min(keyLength, 32)) : placeholder;
   const centerY = KEY_FIELD.y + KEY_FIELD.height / 2;
