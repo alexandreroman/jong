@@ -35,7 +35,7 @@ export function createInput({ canvas, keyField, target = window, initialInputTyp
   const pointFrom = (event) => toLogicalPoint(event.clientX, event.clientY, canvas.getBoundingClientRect());
 
   target.addEventListener('keydown', (event) => {
-    const key = event.key.toLowerCase();
+    const key = (event.key ?? '').toLowerCase();
     // While the player types the API key, only Enter means something to the game.
     if (event.target === keyField) {
       if (key === 'enter') {
@@ -59,7 +59,7 @@ export function createInput({ canvas, keyField, target = window, initialInputTyp
   });
 
   target.addEventListener('keyup', (event) => {
-    pressed.delete(event.key.toLowerCase());
+    pressed.delete((event.key ?? '').toLowerCase());
     updateDirection();
   });
 

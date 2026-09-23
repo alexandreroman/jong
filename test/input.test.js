@@ -113,4 +113,12 @@ describe('createInput', () => {
     const touchInput = createInput({ canvas, keyField, target: window, initialInputType: 'touch' });
     assert.equal(touchInput.state.lastInputType, 'touch');
   });
+
+  it('ignores keydown and keyup events with no key', () => {
+    assert.doesNotThrow(() => {
+      window.dispatchEvent(event('keydown', { repeat: false }));
+      window.dispatchEvent(event('keyup', {}));
+    });
+    assert.equal(actions.length, 0);
+  });
 });
