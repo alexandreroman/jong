@@ -10,6 +10,10 @@ include .env
 export
 endif
 
+# In Casper, fall back to the workspace port when neither the environment nor .env sets one
+# (e.g. the setup hook never ran). Empty outside Casper, which server.mjs treats as 3000.
+export PORT ?= $(CASPER_PORT)
+
 ##@ Develop
 
 # The trap reaps the whole process group (kill 0) on exit or signal, so no
