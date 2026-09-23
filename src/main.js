@@ -253,8 +253,17 @@ function frame(time) {
 
 input.onAction(handleAction);
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && app.screen === 'playing' && app.apiError === null) {
-    pause();
+  if (app.screen !== 'playing') {
+    return;
+  }
+  if (document.hidden) {
+    if (app.apiError === null) {
+      pause();
+    } else {
+      jev.stop();
+    }
+  } else if (app.apiError !== null) {
+    jev.start();
   }
 });
 
