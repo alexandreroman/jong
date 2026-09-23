@@ -50,7 +50,9 @@ export function render(ctx, view) {
   }
 
   if (view.portrait) {
-    drawText(ctx, 'Rotate your device for a better experience', 10, 388, { size: 12, color: DIM, align: 'left' });
+    ctx.fillStyle = OVERLAY;
+    ctx.fillRect(0, 62, COURT.width, 36);
+    drawText(ctx, 'Rotate your device for a better experience', CENTER_X, 80, { size: 24, color: FOREGROUND });
   }
 }
 
