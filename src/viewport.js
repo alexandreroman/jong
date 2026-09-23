@@ -3,18 +3,23 @@
 
 export const LOGICAL_WIDTH = 800;
 export const LOGICAL_HEIGHT = 400;
+// Space kept between the canvas and each viewport edge (CSS px), so the court never touches the screen edges.
+export const VIEWPORT_MARGIN = 16;
 
 /**
- * Computes the canvas size in CSS pixels: the largest 2:1 box that fits in the viewport,
- * capped at the logical size. Values are not rounded.
+ * Computes the canvas size in CSS pixels: the largest 2:1 box that fits in the viewport
+ * minus VIEWPORT_MARGIN on each side, capped at the logical size. Values are not rounded.
  *
  * @param {number} viewportWidth
  * @param {number} viewportHeight
  * @returns {{width: number, height: number}}
  */
 export function computeCanvasSize(viewportWidth, viewportHeight) {
-  const maxWidth = Math.min(LOGICAL_WIDTH, viewportWidth);
-  const maxHeight = Math.min(LOGICAL_HEIGHT, viewportHeight);
+  // The margin lives in this computation rather than in CSS, because a CSS margin would be ignored here and overflow.
+  const availableWidth = Math.max(0, viewportWidth - 2 * VIEWPORT_MARGIN);
+  const availableHeight = Math.max(0, viewportHeight - 2 * VIEWPORT_MARGIN);
+  const maxWidth = Math.min(LOGICAL_WIDTH, availableWidth);
+  const maxHeight = Math.min(LOGICAL_HEIGHT, availableHeight);
   const aspectRatio = LOGICAL_WIDTH / LOGICAL_HEIGHT;
 
   const width = Math.min(maxWidth, maxHeight * aspectRatio);
